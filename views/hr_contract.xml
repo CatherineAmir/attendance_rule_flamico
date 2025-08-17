@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Inherit Form View -->
+    <record id="hr_contract_view_form" model="ir.ui.view">
+        <field name="name">hr.contract.view.form.inherit.module</field>
+        <field name="model">hr.contract</field>
+        <field name="inherit_id" ref="attendance_rule.masters_contract_form_inherit"/>
+        <field name="arch" type="xml">
+            <!-- Add fields to an existing group -->
+            <xpath expr="//field[@name='work_with_attendance']" position="after">
+            <field name="take_overtime" widget="boolean_toggle" invisible="not work_with_attendance"/>
+            <field name="apply_lateness" widget="boolean_toggle" invisible="not work_with_attendance"/>
+            <field name="absence" widget="radio" invisible="not work_with_attendance"/>
+            </xpath>
+
+        </field>
+    </record>
+    
+    <!-- Inherit List View -->
+
+</odoo>
