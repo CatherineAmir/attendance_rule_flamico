@@ -11,9 +11,12 @@
     'company': 'SITA-EGYPT',
     'maintainer': 'SITA-EGYPT',
     'website': 'https://sita-eg.com',
-    'depends': ['base', 'mail', "attendance_rule", ],
+    'depends': ['base', 'mail','hr_payroll','hr_attendance','hr_payroll_attendance','hr_work_entry_contract'],
     'data': [
         'views/hr_contract.xml',
+        'views/hr_attendance.xml',
+        'views/resource_calendar.xml',
+        'views/hr_payslip.xml'
     ],
     'license': 'LGPL-3',
     'installable': True,

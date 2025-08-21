@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="hr_payslip_form_inherit" model="ir.ui.view">
+            <field name="name">hr_payslip.form</field>
+            <field name="model">hr.payslip</field>
+            <field name="inherit_id" ref="hr_payroll.view_hr_payslip_form"/>
+            <field name="priority" eval="8"/>
+            <field name="arch" type="xml">
+                <xpath expr="//page[@name='salary_computation']" position="after">
+                    <page name="attendance_rule" string="Attendance Rule">
+                        <group>
+                            <group string="Lateness Deductions">
+                                <field name="deducted_lateness_days" readonly="1"/>
+                                <field name="deducted_lateness_amount" readonly="1"/>
+                                <field name="actual_deducted_lateness_amount"/>
+                            </group>
+                            <group string="Absence Deductions">
+                                <field name="deducted_absence_days" readonly="1"/>
+                                <field name="deducted_absence_amount" readonly="1"/>
+                                <field name="actual_deducted_absence_amount"/>
+                            </group>
+                        </group>
+                        <group>
+                            <group string="Bonus Public Holiday">
+                                <field name="number_of_public_holidays"/>
+                                <field name="total_bonus_public_holiday"/>
+                            </group>
+                        </group>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>
