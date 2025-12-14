@@ -4,8 +4,8 @@ from odoo import fields, models, api
 class Contract(models.Model):
     _inherit = 'hr.contract'
 
-    take_overtime = fields.Boolean(string="Take Overtime",default=False)
-    apply_lateness=fields.Boolean(string="Apply Lateness",default=False)
+    take_overtime = fields.Boolean(string="Take Overtime",default=False,store=True)
+    apply_lateness=fields.Boolean(string="Apply Lateness",default=False,store=True)
     absence=fields.Selection([
         ("no","No Deduction"),
         ("day_day","Day by day"),
@@ -14,7 +14,7 @@ class Contract(models.Model):
     work_with_attendance = fields.Boolean(string="Work With Attendance",store=True)
     daily_rate = fields.Float(string="Daily Rate", compute='_compute_daily_rate', store=True)
     hourly_rate = fields.Float(string="Hourly Rate", compute='_compute_hourly_rate', store=True)
-    bonus_public_holiday = fields.Float(string="Bonus Public Holiday",default=0)
+    bonus_public_holiday = fields.Float(string="Bonus Public Holiday",default=0,store=True)
     @api.depends("wage")
     def _compute_daily_rate(self):
         for r in self:
