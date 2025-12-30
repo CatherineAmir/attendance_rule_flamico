@@ -31,6 +31,7 @@
                         <field name="take_overtime" widget="boolean_toggle"/>
                         <field name="apply_lateness" widget="boolean_toggle"/>
                         <field name="apply_early_leaving" widget="boolean_toggle"/>
+                        <field name="lateness_policy" widget="radio"/>
                         <field name="absence" widget="radio"/>
                     </group>
                 </page>

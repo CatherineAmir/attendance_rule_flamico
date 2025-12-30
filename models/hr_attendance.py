@@ -144,7 +144,7 @@ class HrAttendance(models.Model):
             tz = timezone(resource.tz) if not calendar else timezone(calendar.tz)
             working_hours = int(work_from[0]) if len(work_from) > 0 else 8
             if rec.first_attendance:
-                if rec.employee_id.contract_id.work_with_attendance and rec.employee_id.contract_id.apply_lateness:
+                if rec.employee_id.contract_id.work_with_attendance and rec.employee_id.contract_id.lateness_policy == 'apply_lateness_rules':
                     tolerance_quarter_hourly_lateness = schedule_id.lateness_deducted_hourly_quarter
                     tolerance_half_hourly_lateness = schedule_id.lateness_deducted_hourly_half
                     check_in_date = rec.check_in.date()

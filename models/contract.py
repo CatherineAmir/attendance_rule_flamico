@@ -6,7 +6,12 @@ class Contract(models.Model):
 
     take_overtime = fields.Boolean(string="Take Overtime",default=False,store=True)
     apply_lateness=fields.Boolean(string="Apply Lateness",default=False,store=True)
-    apply_early_leaving=fields.Boolean(string="Apply Early Leaving",default=False,store=True)
+    lateness_policy = fields.Selection([
+        ("no","No Lateness Deduction"),
+        ("apply_lateness_rules","Apply Lateness Rules Deduction"),
+        ('apply_lateness_hourly_quarter','Apply Lateness Hourly Deduction'),
+    ],default='no',string='Lateness Deduction Policy')
+    apply_early_leaving=fields.Boolean(string="Apply Early Leaving Deduction",default=False,store=True)
     absence=fields.Selection([
         ("no","No Deduction"),
         ("day_day","Day by day"),
