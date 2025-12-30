@@ -11,12 +11,14 @@
     'company': 'SITA-EGYPT',
     'maintainer': 'SITA-EGYPT',
     'website': 'https://sita-eg.com',
-    'depends': ['base', 'mail','hr_payroll','hr_attendance','hr_payroll_attendance','hr_work_entry_contract'],
+    'depends': ['base', 'mail','hr_payroll','hr_attendance','hr_payroll_attendance','hr_work_entry_contract','hr_flamico'],
     'data': [
+        'security/ir.model.access.csv',
         'views/hr_contract.xml',
         'views/hr_attendance.xml',
         'views/resource_calendar.xml',
-        'views/hr_payslip.xml'
+        'views/hr_payslip.xml',
+        'views/attendance_log.xml',
     ],
     'license': 'LGPL-3',
     'installable': True,

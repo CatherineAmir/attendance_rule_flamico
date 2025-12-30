@@ -6,6 +6,7 @@ class Contract(models.Model):
 
     take_overtime = fields.Boolean(string="Take Overtime",default=False,store=True)
     apply_lateness=fields.Boolean(string="Apply Lateness",default=False,store=True)
+    apply_early_leaving=fields.Boolean(string="Apply Early Leaving",default=False,store=True)
     absence=fields.Selection([
         ("no","No Deduction"),
         ("day_day","Day by day"),
@@ -15,6 +16,7 @@ class Contract(models.Model):
     daily_rate = fields.Float(string="Daily Rate", compute='_compute_daily_rate', store=True)
     hourly_rate = fields.Float(string="Hourly Rate", compute='_compute_hourly_rate', store=True)
     bonus_public_holiday = fields.Float(string="Bonus Public Holiday",default=0,store=True)
+    overtime_hourly_rate = fields.Float(string="Overtime Hourly Rate")
     @api.depends("wage")
     def _compute_daily_rate(self):
         for r in self:

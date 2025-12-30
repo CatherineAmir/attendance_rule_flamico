@@ -4,25 +4,28 @@ from odoo.addons.resource.models.utils import Intervals
 from collections import defaultdict
 from datetime import datetime, time, timedelta
 from odoo.osv import expression
+import pytz
 class HrPayslip(models.Model):
     _inherit = 'hr.payslip'
 
 
     attendance_ids = fields.One2many('hr.attendance', 'slip_id')
-    deducted_lateness_days = fields.Float(string='Deducted Lateness Days',default=0)
-    deducted_lateness_amount = fields.Float(string='Deducted Lateness Amount',default=0)
-    actual_deducted_lateness_amount = fields.Float(string='Actual Deducted Lateness Amount')
+    deducted_lateness_days = fields.Float(string='Deducted Lateness Days',default=0,tracking=True)
+    deducted_lateness_amount = fields.Float(string='Deducted Lateness Amount',default=0,tracking=True)
+    actual_deducted_lateness_amount = fields.Float(string='Actual Deducted Lateness Amount',tracking=True)
 
-    deducted_absence_days = fields.Float(string='Deducted Absence Days', default=0)
-    deducted_absence_amount = fields.Float(string='Deducted Absence Amount', default=0)
-    actual_deducted_absence_amount = fields.Float(string='Actual Deducted Absence Amount')
+    deducted_absence_days = fields.Float(string='Deducted Absence Days', default=0,tracking=True)
+    deducted_absence_amount = fields.Float(string='Deducted Absence Amount', default=0,tracking=True)
+    actual_deducted_absence_amount = fields.Float(string='Actual Deducted Absence Amount', tracking=True)
 
-    number_of_public_holidays = fields.Float(string='Number of Public Holidays', default=0)
-    total_bonus_public_holiday = fields.Float(string='Bonus Public Holiday', default=0)
+    number_of_public_holidays = fields.Float(string='Number of Public Holidays', default=0, tracking=True)
+    total_bonus_public_holiday = fields.Float(string='Bonus Public Holiday', default=0, tracking=True)
 
+    early_leave_hours = fields.Float(string='Early Leave Hours', default=0,tracking=True)
+    early_leave_amount = fields.Float(string='Early Leave Amount', default=0,tracking=True)
+    actual_early_leave_amount = fields.Float(string='Actual Early Leave Amount', default=0,tracking=True)
 
-
-
+    overtime_hours = fields.Float(string='Overtime Hours', default=0,compute='_compute_overtime_hours',tracking=True)
 
     def compute_sheet(self):
         self._compute_lateness_days()
@@ -30,11 +33,99 @@ class HrPayslip(models.Model):
         self._compute_absence_days()
         self._calculate_absence_deducted_amount()
         self._compute_public_holidays()
+        self._compute_overtime_hours()
+        self._compute_early_leave_hours()
         # self.compute_attendance_time_off()
         # self._compute_absence_days()
         super(HrPayslip, self).compute_sheet()
 
         return True
+
+    @api.depends('attendance_ids')
+    def _compute_early_leave_hours(self):
+        for rec in self:
+            if rec.attendance_ids and rec.contract_id.apply_early_leaving:
+                user_tz = pytz.timezone(self.env.user.tz or 'UTC')
+                # get attendance grouped by day with min check in and max check out
+                days_attendance_grouped = self.env['hr.attendance'].read_group(
+                    domain=[('id', 'in', rec.attendance_ids.ids), ('check_out', '!=', False),
+                            ('in_mode', '!=', 'technical')],
+                    fields=['check_in:min', 'check_out:max', 'worked_hours:sum'],
+                    groupby=['check_in:day'],
+                    orderby='check_in:day asc',
+                    lazy=False)
+                print("days_attendance_grouped", days_attendance_grouped)
+                early_leave_deducted = 0
+
+                for g in days_attendance_grouped:
+                    print("worked_hours", g.get('worked_hours'))
+                    check_in_local = g.get('check_in').replace(tzinfo=pytz.UTC).astimezone(user_tz) if g.get(
+                        'check_in') else None
+                    check_out_local = g.get('check_out').replace(tzinfo=pytz.UTC).astimezone(
+                        user_tz) if g.get('check_out') else None
+
+                    last_check_out_float = ((check_out_local.hour * 60) + check_out_local.minute) / 60
+                    print("last_check_out_float", last_check_out_float)
+
+                    # Get the default hour_to from working schedule
+                    if rec.contract_id.resource_calendar_id.is_day_shift_intersected:
+                        hour_to = min(rec.contract_id.resource_calendar_id.attendance_ids.filtered(
+                            lambda r: r.dayofweek == str(check_in_local.date().weekday())).mapped('hour_to') or [20])
+                    else:
+                        hour_to = max(rec.contract_id.resource_calendar_id.attendance_ids.filtered(
+                            lambda r: r.dayofweek == str(check_in_local.date().weekday())).mapped('hour_to') or [20])
+                    print("hour_to (original)", hour_to)
+
+                    # Check for custom hour time off on this date
+                    # Adjust this query based on your time off model structure
+                    # date_start = check_in_local.date()
+                    # date_end = check_out_local.date()
+
+                    # Find time offs for this specific date
+                    time_offs = self.env['hr.leave'].search([
+                        ('employee_id', '=', rec.employee_id.id),
+                        ('state', '=', 'validate'),
+                        ('request_unit_hours', '=', True),  # Custom hours time off
+                        ('request_date_from', '=', check_in_local.date()),
+                    ])
+
+                    # Calculate total approved custom hours for this day
+                    approved_early_leave_hours = 0
+                    if time_offs:
+                        for time_off in time_offs:
+                            # Check if time off is on the same day
+                            if time_off.request_date_from == check_in_local.date():
+                                time_off_start_float = float(time_off.request_hour_from)
+                                time_off_end_float = float(time_off.request_hour_to)
+
+                                if time_off_start_float >= last_check_out_float and time_off_end_float <= hour_to:
+                                    approved_early_leave_hours += (time_off_end_float - time_off_start_float)
+
+                    # Adjust hour_to based on approved custom hours
+                    adjusted_hour_to = hour_to - approved_early_leave_hours
+                    print("approved_early_leave_hours", approved_early_leave_hours)
+                    print("adjusted_hour_to", adjusted_hour_to)
+                    print("")
+                    # Calculate early leave with adjusted hour_to
+                    if last_check_out_float < adjusted_hour_to:
+                        number_of_hours_early_leave = (adjusted_hour_to - last_check_out_float)
+                        early_leave_deducted += number_of_hours_early_leave
+                        print("number_of_minutes_early", early_leave_deducted)
+                rec.early_leave_hours = early_leave_deducted
+            else:
+                rec.early_leave_hours = 0
+
+    @api.depends('attendance_ids')
+    def _compute_overtime_hours(self):
+        for rec in self:
+            if rec.attendance_ids:
+                overtime_hours = sum(rec.attendance_ids.filtered(lambda o: o.overtime_hours>0).mapped('overtime_hours'))
+                print("overtime_hours:", overtime_hours)
+                rec.overtime_hours = overtime_hours
+            else:
+                rec.overtime_hours = 0
+
+
 
     @api.depends('attendance_ids')
     def _compute_public_holidays(self):
@@ -47,7 +138,6 @@ class HrPayslip(models.Model):
             else:
                 rec.number_of_public_holidays = 0
                 rec.total_bonus_public_holiday = 0
-
 
     # @api.depends('attendance_ids')
     # def _compute_absence_days(self):

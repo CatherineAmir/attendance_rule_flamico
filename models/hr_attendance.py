@@ -3,10 +3,10 @@ from odoo import fields, models, api, _
 from datetime import datetime, time, date
 from dateutil.relativedelta import relativedelta
 import pytz
-from pytz import timezone
+from pytz import timezone,utc
 from odoo.addons.resource.models.utils import Intervals
 from datetime import timedelta
-
+local_tz = timezone('Africa/Cairo')
 class HrAttendance(models.Model):
     _inherit = 'hr.attendance'
     first_attendance = fields.Boolean(string='is First Attendance', default=False,
@@ -234,34 +234,42 @@ class HrAttendance(models.Model):
     #         self.env.cr.savepoint()
     #         self.env.flush_all()
 
-    # for employee id 10042
+
     def _cron_absence_detection(self):
         """
         Objective is to create technical attendances on absence days to have negative overtime created for that day
         """
-        number_of_days = 52
+        number_of_days = 20
         # yesterday = datetime.today().replace(hour=0, minute=0, second=0) - relativedelta(days=1)
 
         companies = self.env['res.company'].search([('absence_management', '=', True)])
         if not companies:
             return
 
-        TARGET_EMP_ID = 10042  # NEW: limit cron to this employee only
+        TARGET_EMP_ID = 7735  # NEW: limit cron to this employee only
 
         for d in range(1, number_of_days + 1):
             technical_attendances_vals = []
             day = datetime.today().replace(hour=0, minute=0, second=0) - relativedelta(days=number_of_days - d)
             print("day", day)
             today = datetime.today()
-            if today == day:
+            print("today", today)
+            if today.date() == day.date():
                 break
 
             # CHANGED: only check overtime for the target employee
-            checked_in_employees = self.env['hr.attendance.overtime'].search([
-                ('date', '=', day),
-                ('adjustment', '=', False),
-                ('employee_id', '=', TARGET_EMP_ID),  # NEW
-            ]).employee_id
+            # checked_in_employees = self.env['hr.attendance.overtime'].search([
+            #     ('date', '=', day),
+            #     ('adjustment', '=', False),
+            #     ('employee_id', '=', TARGET_EMP_ID),  # NEW
+            # ]).employee_id
+            checked_in_employees = self.env['hr.attendance'].search([
+
+                ('check_in', '>=', fields.datetime.combine(day.date(), fields.datetime.min.time())),
+                ('check_in', '<=', fields.datetime.combine(day.date(), fields.datetime.max.time())),
+                ('employee_id', '=', TARGET_EMP_ID),
+            ]
+            ).employee_id
 
             # CHANGED: only consider the target employee, and only if absent
             absent_employees = self.env['hr.employee'].search([
@@ -274,16 +282,27 @@ class HrAttendance(models.Model):
                 schedule_id = emp.contract_id.resource_calendar_id
                 work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
                 if len(work_from):
-                    start_hour = int(work_from[0])
+                    print("work_from", work_from)
+                    start_hour = int(max(work_from) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_from[0])
+                    print("start_hour", start_hour)
                 else:
                     start_hour = 9
 
-                local_day_start = pytz.utc.localize(day).astimezone(pytz.timezone(emp._get_tz())) + relativedelta(
-                    hours=start_hour)
 
+                local_day_start = local_tz.localize(day) + relativedelta(
+                    hours=start_hour)
+                print("local_day_start", local_day_start)
+                # naive_dt = datetime.strptime(, '%Y-%m-%dT%H:%M:%S')
+                # native_dt=day
+                # print("native_dt", native_dt)
+                # localized_dt = local_tz.localize(native_dt)
+                # print("localized_dt", localized_dt)
+                attendance_utc_dt = datetime.strptime(local_day_start.astimezone(utc).strftime('%Y-%m-%d %H:%M:%S'),
+                                                      '%Y-%m-%d %H:%M:%S')
+                print("attendance_utc_dt", attendance_utc_dt)
                 technical_attendances_vals.append({
-                    'check_in': local_day_start.strftime('%Y-%m-%d %H:%M:%S'),
-                    'check_out': (local_day_start + relativedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S'),
+                    'check_in': attendance_utc_dt.strftime('%Y-%m-%d %H:%M:%S'),
+                    'check_out': (attendance_utc_dt + relativedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S'),
                     'in_mode': 'technical',
                     'out_mode': 'technical',
                     'employee_id': emp.id
@@ -304,6 +323,8 @@ class HrAttendance(models.Model):
             self.env.cr.commit()
             self.env.cr.savepoint()
             self.env.flush_all()
+
+
 
     @api.depends("check_in", "in_mode")
     def _calculate_first_attendance(self):

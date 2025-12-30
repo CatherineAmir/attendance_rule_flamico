@@ -22,6 +22,7 @@
                     <div class="mb-3" name="wage_period_label">/ Hour</div>
                 </div>
                 <field name="bonus_public_holiday"/>
+                <field name="overtime_hourly_rate"/>
             </xpath>
             <!-- Add fields to an existing group -->
             <xpath expr="//notebook/page[@name='other']" position="after">
@@ -29,6 +30,7 @@
                     <group>
                         <field name="take_overtime" widget="boolean_toggle"/>
                         <field name="apply_lateness" widget="boolean_toggle"/>
+                        <field name="apply_early_leaving" widget="boolean_toggle"/>
                         <field name="absence" widget="radio"/>
                     </group>
                 </page>

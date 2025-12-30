@@ -12,6 +12,9 @@
                     <field name="lateness_deducted_hourly_quarter"/>
                     <field name="lateness_deducted_hourly_half"/>
                 </xpath>
+                <xpath expr="//field[@name='tz']" position="after">
+                    <field name="is_day_shift_intersected" widget="boolean_toggle"/>
+                </xpath>
             </field>
         </record>
     </data>

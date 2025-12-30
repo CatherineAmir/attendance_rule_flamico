@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hr_attendance_log_tree" model="ir.ui.view">
+        <field name="name">hr.attendance.log.tree</field>
+        <field name="model">hr.attendance.log</field>
+        <field name="arch" type="xml">
+            <list string="Attendance Logs" decoration-danger="error_exist" decoration-info="not error_exist">
+                <field name="attendance_date"/>
+                <field name="employee_attendance_id"/>
+                <field name="employee_id"/>
+                <field name="punch"/>
+                <field name="time_stamp"/>
+                <field name="machine_id"/>
+                <field name="error_exist"/>
+                <field name="error_message"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_hr_attendance_log_search" model="ir.ui.view">
+        <field name="name">hr.attendance.log.search</field>
+        <field name="model">hr.attendance.log</field>
+        <field name="arch" type="xml">
+          <search string="Search Attendance Logs">
+            <field name="attendance_date" string="Attendance Date"/>
+            <field name="employee_id" string="Employee"/>
+            <field name="machine_id" string="Machine"/>
+            <filter name="error_exist" string="Error Exists" domain="[('error_exist','=',True)]"/>
+            <filter name="no_error_exist" string="No Error " domain="[('error_exist','=',False)]"/>
+
+            <filter name="group_by_employee" string="Group by Employee" context="{'group_by':'employee_id'}"/>
+            <filter name="group_by_date" string="Group by Date" context="{'group_by':'attendance_date'}"/>
+          </search>
+        </field>
+    </record>
+    <record id="action_hr_attendance_log_list" model="ir.actions.act_window">
+        <field name="name">Attendance Logs</field>
+        <field name="res_model">hr.attendance.log</field>
+        <field name="view_mode">list,search</field>
+        <field name="context">{"default_group_by":['attendance_date','employee_id']}</field>
+    </record>
+
+    <menuitem id="hr_attendance_log_menu" name="Attendance Logs"
+              parent="hr_attendance.menu_hr_attendance_root"
+              action="action_hr_attendance_log_list"
+              sequence="7"/>
+</odoo>

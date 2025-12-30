@@ -27,6 +27,16 @@
                                 <field name="number_of_public_holidays"/>
                                 <field name="total_bonus_public_holiday"/>
                             </group>
+                            <group string="overtime">
+                                <field name="overtime_hours"/>
+                            </group>
+                        </group>
+                        <group>
+                            <group string="Early Leaving Deductions">
+                                <field name="early_leave_hours" readonly="1"/>
+                                <field name="early_leave_amount" readonly="1"/>
+                                <field name="actual_early_leave_amount"/>
+                            </group>
                         </group>
                     </page>
                 </xpath>
