@@ -14,6 +14,7 @@ class HrAttendance(models.Model):
     lateness_deducted = fields.Selection([('none', 'None'), ('quarter_day', 'Quarter Day'), ('half_day', 'Half Day')],
                                          default='none', string='Lateness Deduction',
                                          compute='_calculate_lateness_deducted', store=True)
+    lateness_deducted_hours = fields.Float(string='Lateness Deducted Hours', compute='_compute_lateness_deducted_hours', store=True)
     slip_id = fields.Many2one('hr.payslip', string='Slip')
     is_leave = fields.Boolean(default=False, store=True)
     absence = fields.Selection([
@@ -22,6 +23,32 @@ class HrAttendance(models.Model):
         ("day_by_day_half", "Day by day and half"),
     ], default='no', string='Absence Deduction')
     is_public_holiday = fields.Boolean(default=False, string='Is Public Holiday',store=True,compute='_is_public_holiday')
+    lateness_policy = fields.Selection(related='employee_id.contract_id.lateness_policy', string='Lateness Policy', store=True)
+
+
+
+
+    @api.depends('check_in','first_attendance','employee_id')
+    def _compute_lateness_deducted_hours(self):
+        for rec in self:
+            if rec.first_attendance and rec.employee_id and rec.employee_id.contract_id.work_with_attendance and  rec.employee_id.contract_id.lateness_policy == 'apply_lateness_hourly_quarter':
+                schedule_id = rec.employee_id.resource_calendar_id
+                work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
+                calendar = rec._get_employee_calendar()
+                resource = rec.employee_id.resource_id
+                tz = timezone(resource.tz) if not calendar else timezone(calendar.tz)
+                working_hour_from = int(work_from[0]) if len(work_from) > 0 else 8
+                check_in_local = rec.check_in.astimezone(tz)
+                print("check_in_local", check_in_local)
+                check_in_float = check_in_local.hour + (check_in_local.minute / 60)
+                print("check_in_float", check_in_float)
+                lateness_hours = check_in_float - working_hour_from
+                print("lateness_hours", lateness_hours)
+                if lateness_hours >= 1:
+                    rec.lateness_deducted_hours = lateness_hours
+            else:
+                rec.lateness_deducted_hours = 0.0
+
     # is_time_off = fields.Boolean(default=False, string='Is Time Off (Approved)',store=True)
 
     # def _is_time_off_approved(self,technical_attendances):

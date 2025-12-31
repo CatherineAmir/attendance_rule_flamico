@@ -8,16 +8,19 @@
             <field name="inherit_id" ref="hr_attendance.hr_attendance_view_form"/>
             <field name="priority" eval="8"/>
             <field name="arch" type="xml">
-                <xpath  expr="//header" position="inside">
+                <xpath expr="//header" position="inside">
                     <button type="object" string="calc" name="calculate_test_button"/>
                 </xpath>
                 <xpath expr="//field[@name='check_out']" position="after">
                     <field name="slip_id"/>
                     <field name="first_attendance"/>
-                    <field name="lateness_deducted" invisible="first_attendance == False"/>
+                    <field name="lateness_deducted"
+                           invisible="first_attendance == False or lateness_policy != 'apply_lateness_rules'"/>
+                    <field name="lateness_deducted_hours"
+                           invisible="first_attendance == False or lateness_policy != 'apply_lateness_hourly_quarter'"/>
                     <field name="is_leave" readonly="1"/>
                     <field name="is_public_holiday" readonly="1"/>
-<!--                    <field name="is_time_off" readonly="1"/>-->
+                    <!--                    <field name="is_time_off" readonly="1"/>-->
                     <field name="absence"/>
                 </xpath>
             </field>
@@ -32,9 +35,10 @@
                     <field name="first_attendance"/>
                     <field name="slip_id"/>
                     <field name="lateness_deducted"/>
+                    <field name="lateness_deducted_hours" optional="hide"/>
                     <field name="is_leave"/>
                     <field name="is_public_holiday"/>
-<!--                    <field name="is_time_off"/>-->
+                    <!--                    <field name="is_time_off"/>-->
                     <field name="absence"/>
                 </xpath>
             </field>
@@ -47,7 +51,8 @@
             <field name="arch" type="xml">
                 <xpath expr="//filter[@name='employee']" position="after">
                     <field name="lateness_deducted"/>
-                    <filter string="lateness deducted" name="lateness_deducted" context="{'group_by': 'lateness_deducted'}"/>
+                    <filter string="lateness deducted" name="lateness_deducted"
+                            context="{'group_by': 'lateness_deducted'}"/>
                 </xpath>
             </field>
         </record>

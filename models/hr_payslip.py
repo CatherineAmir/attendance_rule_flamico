@@ -26,7 +26,7 @@ class HrPayslip(models.Model):
     actual_early_leave_amount = fields.Float(string='Actual Early Leave Amount', default=0,tracking=True)
 
     overtime_hours = fields.Float(string='Overtime Hours', default=0,compute='_compute_overtime_hours',tracking=True)
-
+    lateness_policy = fields.Selection(related='contract_id.lateness_policy', string='Lateness Policy', store=True)
     def compute_sheet(self):
         self._compute_lateness_days()
         self._calculate_lateness_deducted_amount()
@@ -235,28 +235,40 @@ class HrPayslip(models.Model):
                 rec.deducted_absence_amount = 0
                 rec.actual_deducted_absence_amount = 0
 
-    @api.depends('attendance_ids')
+    @api.depends('attendance_ids','lateness_policy')
     def _compute_lateness_days(self):
         for rec in self:
             if rec.attendance_ids:
-                attendances_deducted_half_day = self.env['hr.attendance'].search_count(domain=[
-                    ('id','in',rec.attendance_ids.ids),
-                    ('in_mode','=','manual'),
-                    ('first_attendance','=',True),
-                    ('lateness_deducted','=','half_day'),
+                if rec.lateness_policy == 'no':
+                    rec.deducted_lateness_days = 0
+                    continue
+                if rec.lateness_policy == 'apply_lateness_rules':
+                    attendances_deducted_half_day = self.env['hr.attendance'].search_count(domain=[
+                        ('id','in',rec.attendance_ids.ids),
+                        ('in_mode','=','manual'),
+                        ('first_attendance','=',True),
+                        ('lateness_deducted','=','half_day'),
 
-                ])
-                attendances_deducted_quarter_day = self.env['hr.attendance'].search_count(domain=[
-                    ('id', 'in', rec.attendance_ids.ids),
-                    ('in_mode', '=', 'manual'),
-                    ('first_attendance', '=', True),
-                    ('lateness_deducted', '=', 'quarter_day'),
-                ])
-                print("attendences_deducted_half_day",attendances_deducted_half_day)
-                print("attendances_deducted_quarter_day",attendances_deducted_quarter_day)
-                amount_in_days = (attendances_deducted_half_day*0.5) + (attendances_deducted_quarter_day*0.25)
-                print("amount_in_days",amount_in_days)
-                rec.deducted_lateness_days = amount_in_days
+                    ])
+                    attendances_deducted_quarter_day = self.env['hr.attendance'].search_count(domain=[
+                        ('id', 'in', rec.attendance_ids.ids),
+                        ('in_mode', '=', 'manual'),
+                        ('first_attendance', '=', True),
+                        ('lateness_deducted', '=', 'quarter_day'),
+                    ])
+                    print("attendences_deducted_half_day",attendances_deducted_half_day)
+                    print("attendances_deducted_quarter_day",attendances_deducted_quarter_day)
+                    amount_in_days = (attendances_deducted_half_day*0.5) + (attendances_deducted_quarter_day*0.25)
+                    print("amount_in_days",amount_in_days)
+                    rec.deducted_lateness_days = amount_in_days
+                elif rec.lateness_policy == 'apply_lateness_hourly_quarter':
+                    total_lateness_hours = sum(rec.attendance_ids.filtered(lambda o: o.lateness_deducted_hours>0).mapped('lateness_deducted_hours'))
+                    print("total_lateness_hours:", total_lateness_hours)
+                    lateness_days = total_lateness_hours / 8
+                    # Round to nearest quarter day
+                    lateness_days_rounded = lateness_days
+                    print("lateness_days_rounded:", lateness_days_rounded)
+                    rec.deducted_lateness_days = lateness_days_rounded
             else:
                 rec.deducted_lateness_days = 0
 
