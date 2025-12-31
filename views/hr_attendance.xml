@@ -21,7 +21,7 @@
                     <field name="is_leave" readonly="1"/>
                     <field name="is_public_holiday" readonly="1"/>
                     <!--                    <field name="is_time_off" readonly="1"/>-->
-                    <field name="absence"/>
+                    <field name="absence" readonly="1"/>
                 </xpath>
             </field>
         </record>
