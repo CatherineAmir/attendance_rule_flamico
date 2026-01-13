@@ -33,17 +33,17 @@ class HrAttendance(models.Model):
         for rec in self:
             if rec.first_attendance and rec.employee_id and rec.employee_id.contract_id.work_with_attendance and  rec.employee_id.contract_id.lateness_policy == 'apply_lateness_hourly_quarter':
                 schedule_id = rec.employee_id.resource_calendar_id
-                work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
+                if schedule_id.is_day_shift_intersected:
+                    work_from = max(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from')))))
+                else:
+                    work_from = min(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from')))))
                 calendar = rec._get_employee_calendar()
                 resource = rec.employee_id.resource_id
                 tz = timezone(resource.tz) if not calendar else timezone(calendar.tz)
-                working_hour_from = int(work_from[0]) if len(work_from) > 0 else 8
+                working_hour_from = work_from
                 check_in_local = rec.check_in.astimezone(tz)
-                print("check_in_local", check_in_local)
                 check_in_float = check_in_local.hour + (check_in_local.minute / 60)
-                print("check_in_float", check_in_float)
                 lateness_hours = check_in_float - working_hour_from
-                print("lateness_hours", lateness_hours)
                 if lateness_hours >= 1:
                     rec.lateness_deducted_hours = lateness_hours
             else:
@@ -72,13 +72,13 @@ class HrAttendance(models.Model):
             if rec.check_in and rec.first_attendance:
                 check_in_date = rec.check_in.date()
                 start = datetime.combine(check_in_date, time.min)
-                print("start date:", start)
+                # print("start date:", start)
                 end = start + relativedelta(days=1)
-                print("end date:", end)
+                # print("end date:", end)
                 prev_day_attendance = self.env['resource.calendar.leaves'].search(
                     [ ('date_from', '>=', start),
                      ('date_to', '<', end)])
-                print("prev_day_attendance", prev_day_attendance)
+                # print("prev_day_attendance", prev_day_attendance)
                 if len(prev_day_attendance) > 0:
                     rec.is_public_holiday = True
                 else:
@@ -119,7 +119,7 @@ class HrAttendance(models.Model):
                     prev_day_attendance = self.env['hr.attendance'].search(
                         [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id), ('check_in', '>=', start),
                          ('check_in', '<', end)], order='check_in asc')
-                    print("prev_day_attendance",prev_day_attendance.check_in)
+                    # print("prev_day_attendance",prev_day_attendance.check_in)
                     if len(prev_day_attendance) > 0:
                         if rec.is_leave:
                                 if prev_day_attendance[0].in_mode == 'technical' and not  prev_day_attendance[0].is_leave:
@@ -161,22 +161,40 @@ class HrAttendance(models.Model):
         # self.detect_is_timeoff()
         # self.detect_absence_state()
 
+    def add_float_hours_to_time(self, base_hours, float_hours):
+        total_float_hours = base_hours + float_hours
+        hours = int(total_float_hours)
+        minutes = int((total_float_hours - hours) * 60)
+        if minutes >= 60:
+            hours += minutes // 60
+            minutes = minutes % 60
+
+        hours = hours % 24
+
+        return time(hours, minutes, 0)
+
     @api.depends('check_in', 'first_attendance')
     def _calculate_lateness_deducted(self):
         for rec in self:
             schedule_id = rec.employee_id.resource_calendar_id
-            work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
+            if schedule_id.is_day_shift_intersected:
+                work_from = max(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from')))))
+            else:
+                work_from = min(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from')))))
+            # work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
+            print("work_from", work_from)
             calendar = rec._get_employee_calendar()
             resource = rec.employee_id.resource_id
             tz = timezone(resource.tz) if not calendar else timezone(calendar.tz)
-            working_hours = int(work_from[0]) if len(work_from) > 0 else 8
+            working_hours = work_from
+            print("working_hours", working_hours)
             if rec.first_attendance:
                 if rec.employee_id.contract_id.work_with_attendance and rec.employee_id.contract_id.lateness_policy == 'apply_lateness_rules':
                     tolerance_quarter_hourly_lateness = schedule_id.lateness_deducted_hourly_quarter
                     tolerance_half_hourly_lateness = schedule_id.lateness_deducted_hourly_half
                     check_in_date = rec.check_in.date()
-                    custom_time_quarter_day = time(int(working_hours + tolerance_quarter_hourly_lateness), 0, 0)
-                    custom_time_half_day = time(int(working_hours + tolerance_half_hourly_lateness), 0, 0)
+                    custom_time_quarter_day = rec.add_float_hours_to_time(working_hours, tolerance_quarter_hourly_lateness)
+                    custom_time_half_day = rec.add_float_hours_to_time(working_hours, tolerance_half_hourly_lateness)
                     max_check_in_quarter = datetime.combine(check_in_date, custom_time_quarter_day)
                     max_check_in_tz_quarter = tz.localize(max_check_in_quarter)
                     max_check_in_half = datetime.combine(check_in_date, custom_time_half_day)
@@ -266,21 +284,21 @@ class HrAttendance(models.Model):
         """
         Objective is to create technical attendances on absence days to have negative overtime created for that day
         """
-        number_of_days = 20
+        number_of_days = 12
         # yesterday = datetime.today().replace(hour=0, minute=0, second=0) - relativedelta(days=1)
 
         companies = self.env['res.company'].search([('absence_management', '=', True)])
         if not companies:
             return
 
-        TARGET_EMP_ID = 7735  # NEW: limit cron to this employee only
+        TARGET_EMP_ID = 10539  # NEW: limit cron to this employee only
 
         for d in range(1, number_of_days + 1):
             technical_attendances_vals = []
             day = datetime.today().replace(hour=0, minute=0, second=0) - relativedelta(days=number_of_days - d)
             print("day", day)
             today = datetime.today()
-            print("today", today)
+            # print("today", today)
             if today.date() == day.date():
                 break
 
@@ -309,16 +327,16 @@ class HrAttendance(models.Model):
                 schedule_id = emp.contract_id.resource_calendar_id
                 work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
                 if len(work_from):
-                    print("work_from", work_from)
+                    # print("work_from", work_from)
                     start_hour = int(max(work_from) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_from[0])
-                    print("start_hour", start_hour)
+                    # print("start_hour", start_hour)
                 else:
                     start_hour = 9
 
 
                 local_day_start = local_tz.localize(day) + relativedelta(
                     hours=start_hour)
-                print("local_day_start", local_day_start)
+                # print("local_day_start", local_day_start)
                 # naive_dt = datetime.strptime(, '%Y-%m-%dT%H:%M:%S')
                 # native_dt=day
                 # print("native_dt", native_dt)
@@ -336,6 +354,7 @@ class HrAttendance(models.Model):
                 })
 
             technical_attendances = self.env['hr.attendance'].create(technical_attendances_vals)
+            print("technical_attendances", technical_attendances.mapped("check_in"))
             self.detect_is_timeoff(technical_attendances)
             # self._is_time_off_approved(technical_attendances)
             self.detect_absence_state(technical_attendances)
@@ -356,13 +375,9 @@ class HrAttendance(models.Model):
     @api.depends("check_in", "in_mode")
     def _calculate_first_attendance(self):
         for r in self:
-            if r.in_mode == 'manual':
-                if r.check_in:
-                    print("my_check_in", r.check_in)
-                    check_in_date = r.check_in.date()
-                else:
-                    r.first_attendance = False
-                    return
+            if r.in_mode == 'manual' and r.check_in:
+                r.first_attendance = False
+                check_in_date = r.check_in.date()
                 same_check_in = self.env['hr.attendance'].search(
                     [("employee_id", "=", r.employee_id.id),
                      ('check_in', '>=', fields.datetime.combine(check_in_date, fields.datetime.min.time())),
@@ -373,16 +388,16 @@ class HrAttendance(models.Model):
 
                 if len(same_check_in):
                     if same_check_in.check_in > r.check_in:
-                        print("same_check_in.check_in > r.check_in:", same_check_in.check_in > r.check_in)
+                        # print("same_check_in.check_in > r.check_in:", same_check_in.check_in > r.check_in)
                         r.first_attendance = True
                         # same_check_in.first_attendance = False
                     else:
-                        print("the other is the bigger")
+                        # print("the other is the bigger")
                         same_check_in.first_attendance = True
 
                         r.first_attendance = False
                 else:
-                    print("the only one")
+                    # print("the only one")
                     r.first_attendance = True
             else:
                 r.first_attendance = False

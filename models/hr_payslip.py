@@ -27,6 +27,11 @@ class HrPayslip(models.Model):
 
     overtime_hours = fields.Float(string='Overtime Hours', default=0,compute='_compute_overtime_hours',tracking=True)
     lateness_policy = fields.Selection(related='contract_id.lateness_policy', string='Lateness Policy', store=True)
+    weekly_reward = fields.Float(string='Weekly Reward', compute='_compute_weekly_reward', store=True)
+
+
+
+
     def compute_sheet(self):
         self._compute_lateness_days()
         self._calculate_lateness_deducted_amount()
@@ -35,11 +40,30 @@ class HrPayslip(models.Model):
         self._compute_public_holidays()
         self._compute_overtime_hours()
         self._compute_early_leave_hours()
+        self._compute_weekly_reward()
         # self.compute_attendance_time_off()
         # self._compute_absence_days()
         super(HrPayslip, self).compute_sheet()
 
         return True
+
+    @api.depends('attendance_ids','contract_id.weekly_reward')
+    def _compute_weekly_reward(self):
+        for rec in self:
+            if rec.attendance_ids:
+                attendance_days = rec.attendance_ids.filtered(lambda r: r.first_attendance)
+                if len(attendance_days) > 0:
+                    week_reward_value = rec.contract_id.weekly_reward
+                    number_of_worked_days = len(set(rec.contract_id.resource_calendar_id.attendance_ids.filtered(
+                        lambda r: not r.work_entry_type_id.is_leave).mapped('dayofweek')))
+                    daily_reward = week_reward_value / number_of_worked_days
+                    print("daily_reward:", daily_reward)
+                    print("attendance_days:", len(attendance_days))
+                    total_reward = daily_reward * len(attendance_days)
+                    rec.weekly_reward = total_reward
+            else:
+                rec.weekly_reward = 0
+
 
     @api.depends('attendance_ids')
     def _compute_early_leave_hours(self):
@@ -54,27 +78,28 @@ class HrPayslip(models.Model):
                     groupby=['check_in:day'],
                     orderby='check_in:day asc',
                     lazy=False)
-                print("days_attendance_grouped", days_attendance_grouped)
+                # print("days_attendance_grouped", days_attendance_grouped)
                 early_leave_deducted = 0
 
                 for g in days_attendance_grouped:
-                    print("worked_hours", g.get('worked_hours'))
+                    # print("worked_hours", g.get('worked_hours'))
                     check_in_local = g.get('check_in').replace(tzinfo=pytz.UTC).astimezone(user_tz) if g.get(
                         'check_in') else None
                     check_out_local = g.get('check_out').replace(tzinfo=pytz.UTC).astimezone(
                         user_tz) if g.get('check_out') else None
-
+                    print("check_in_local", check_in_local)
+                    print("check_out_local", check_out_local)
                     last_check_out_float = ((check_out_local.hour * 60) + check_out_local.minute) / 60
                     print("last_check_out_float", last_check_out_float)
 
                     # Get the default hour_to from working schedule
                     if rec.contract_id.resource_calendar_id.is_day_shift_intersected:
                         hour_to = min(rec.contract_id.resource_calendar_id.attendance_ids.filtered(
-                            lambda r: r.dayofweek == str(check_in_local.date().weekday())).mapped('hour_to') or [20])
+                            lambda r: r.dayofweek == str(check_out_local.date().weekday())).mapped('hour_to') or [20])
                     else:
                         hour_to = max(rec.contract_id.resource_calendar_id.attendance_ids.filtered(
                             lambda r: r.dayofweek == str(check_in_local.date().weekday())).mapped('hour_to') or [20])
-                    print("hour_to (original)", hour_to)
+                    # print("hour_to (original)", hour_to)
 
                     # Check for custom hour time off on this date
                     # Adjust this query based on your time off model structure
@@ -103,17 +128,23 @@ class HrPayslip(models.Model):
 
                     # Adjust hour_to based on approved custom hours
                     adjusted_hour_to = hour_to - approved_early_leave_hours
-                    print("approved_early_leave_hours", approved_early_leave_hours)
-                    print("adjusted_hour_to", adjusted_hour_to)
-                    print("")
+                    # print("approved_early_leave_hours", approved_early_leave_hours)
+                    # print("adjusted_hour_to", adjusted_hour_to)
+                    # print("")
                     # Calculate early leave with adjusted hour_to
                     if last_check_out_float < adjusted_hour_to:
+                        print("adjusted_hour_to",adjusted_hour_to)
+                        print("last_check_out_float", last_check_out_float)
                         number_of_hours_early_leave = (adjusted_hour_to - last_check_out_float)
                         early_leave_deducted += number_of_hours_early_leave
                         print("number_of_minutes_early", early_leave_deducted)
                 rec.early_leave_hours = early_leave_deducted
+                rec.early_leave_amount = rec.early_leave_hours * rec.contract_id.hourly_rate
+                rec.actual_early_leave_amount = rec.early_leave_amount
             else:
                 rec.early_leave_hours = 0
+                rec.early_leave_amount = 0
+                rec.actual_early_leave_amount = 0
 
     @api.depends('attendance_ids')
     def _compute_overtime_hours(self):

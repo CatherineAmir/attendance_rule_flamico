@@ -27,8 +27,9 @@
                                 <field name="number_of_public_holidays"/>
                                 <field name="total_bonus_public_holiday"/>
                             </group>
-                            <group string="overtime">
+                            <group string="overtime and Rewards">
                                 <field name="overtime_hours"/>
+                                <field name="weekly_reward"/>
                             </group>
                         </group>
                         <group>
