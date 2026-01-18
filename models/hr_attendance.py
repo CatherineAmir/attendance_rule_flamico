@@ -291,7 +291,7 @@ class HrAttendance(models.Model):
         if not companies:
             return
 
-        TARGET_EMP_ID = 10539  # NEW: limit cron to this employee only
+        TARGET_EMP_ID = 9964  # NEW: limit cron to this employee only
 
         for d in range(1, number_of_days + 1):
             technical_attendances_vals = []
@@ -329,7 +329,7 @@ class HrAttendance(models.Model):
                 if len(work_from):
                     # print("work_from", work_from)
                     start_hour = int(max(work_from) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_from[0])
-                    # print("start_hour", start_hour)
+                    print("start_hour", start_hour)
                 else:
                     start_hour = 9
 

@@ -57,8 +57,6 @@ class HrPayslip(models.Model):
                     number_of_worked_days = len(set(rec.contract_id.resource_calendar_id.attendance_ids.filtered(
                         lambda r: not r.work_entry_type_id.is_leave).mapped('dayofweek')))
                     daily_reward = week_reward_value / number_of_worked_days
-                    print("daily_reward:", daily_reward)
-                    print("attendance_days:", len(attendance_days))
                     total_reward = daily_reward * len(attendance_days)
                     rec.weekly_reward = total_reward
             else:
@@ -87,10 +85,7 @@ class HrPayslip(models.Model):
                         'check_in') else None
                     check_out_local = g.get('check_out').replace(tzinfo=pytz.UTC).astimezone(
                         user_tz) if g.get('check_out') else None
-                    print("check_in_local", check_in_local)
-                    print("check_out_local", check_out_local)
                     last_check_out_float = ((check_out_local.hour * 60) + check_out_local.minute) / 60
-                    print("last_check_out_float", last_check_out_float)
 
                     # Get the default hour_to from working schedule
                     if rec.contract_id.resource_calendar_id.is_day_shift_intersected:
