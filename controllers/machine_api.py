@@ -115,21 +115,21 @@ class AttendanceMachineIntegration(http.Controller):
 
                     _logger.info("Check Out %s,%s", employee_id.name, attendance_utc_dt)
                     if len(attendance_employee):
-                        attendance_employee_2 = attendance_employee.filtered(
-                            lambda emp: emp.check_in >= attendance_employee[-1].check_out and not emp.check_out)
+                        # attendance_employee_2 = attendance_employee.filtered(
+                        #     lambda emp: emp.check_in >= attendance_employee[-1].check_out and not emp.check_out)
+                        #
+                        # if len(attendance_employee_2) == 1:
+                        #     _logger.info("Write Check out if in and out")
+                        #     _logger.info("attendance_employee %s for employee  in case 1 attendance %s",
+                        #                  attendance_employee.check_in,
+                        #                  employee_id.name)
+                        #     attendance_employee_2.write({
+                        #         "check_out": attendance_utc_dt
+                        #     })
+                        #
+                        # else:
 
-                        if len(attendance_employee_2) == 1:
-                            _logger.info("Write Check out if in and out")
-                            _logger.info("attendance_employee %s for employee  in case 1 attendance %s",
-                                         attendance_employee.check_in,
-                                         employee_id.name)
-                            attendance_employee_2.write({
-                                "check_out": attendance_utc_dt
-                            })
-
-                        else:
-
-                            pass
+                            # pass
 
                         _logger.info("already Exist")
                         pass
