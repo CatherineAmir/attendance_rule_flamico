@@ -40,10 +40,13 @@ class HrAttendance(models.Model):
                 calendar = rec._get_employee_calendar()
                 resource = rec.employee_id.resource_id
                 tz = timezone(resource.tz) if not calendar else timezone(calendar.tz)
-                working_hour_from = work_from
+                working_hour_from = int(work_from[0]) if len(work_from) > 0 else 8
                 check_in_local = rec.check_in.astimezone(tz)
+                print("check_in_local", check_in_local)
                 check_in_float = check_in_local.hour + (check_in_local.minute / 60)
+                print("check_in_float", check_in_float)
                 lateness_hours = check_in_float - working_hour_from
+                print("lateness_hours", lateness_hours)
                 if lateness_hours >= 1:
                     rec.lateness_deducted_hours = lateness_hours
             else:
@@ -112,7 +115,7 @@ class HrAttendance(models.Model):
                         rec.absence = 'day_day'
                 elif rec.employee_id.contract_id.absence == 'day_by_day_half':
                     base_day = rec.check_in.date()
-                    print("check_in:", base_day)
+                    # print("check_in:", base_day)
                     prev_day = base_day - relativedelta(days=1)
                     start = datetime.combine(prev_day, time.min)
                     end = start + relativedelta(days=1)
@@ -284,7 +287,7 @@ class HrAttendance(models.Model):
         """
         Objective is to create technical attendances on absence days to have negative overtime created for that day
         """
-        number_of_days = 12
+        number_of_days = 20
         # yesterday = datetime.today().replace(hour=0, minute=0, second=0) - relativedelta(days=1)
 
         companies = self.env['res.company'].search([('absence_management', '=', True)])
@@ -313,12 +316,20 @@ class HrAttendance(models.Model):
                 ('check_in', '>=', fields.datetime.combine(day.date(), fields.datetime.min.time())),
                 ('check_in', '<=', fields.datetime.combine(day.date(), fields.datetime.max.time())),
                 ('employee_id', '=', TARGET_EMP_ID),
-            ]
-            ).employee_id
+            ])
+
+            #     # ('employee_id', '=', TARGET_EMP_ID),  # NEW
+            # ]).employee_id
+            # attendance not attendance overtime
+            # checked_in_employees = self.env['hr.attendance'].search([
+            #
+            #     ('check_in', '>=', fields.datetime.combine(day.date(), fields.datetime.min.time())),
+            #     ('check_in', '<=', fields.datetime.combine(day.date(), fields.datetime.max.time())), ]
+
 
             # CHANGED: only consider the target employee, and only if absent
             absent_employees = self.env['hr.employee'].search([
-                ('id', '=', TARGET_EMP_ID),  # NEW
+                # ('id', '=', TARGET_EMP_ID),  # NEW
                 ('id', 'not in', checked_in_employees.ids),
                 ('company_id', 'in', companies.ids),
             ])
