@@ -30,5 +30,6 @@ class Contract(models.Model):
     @api.depends("daily_rate")
     def _compute_hourly_rate(self):
         for r in self:
-            r.hourly_rate = r.daily_rate / 8
+            if r.resource_calendar_id:
+                r.hourly_rate = r.daily_rate / 8
 
