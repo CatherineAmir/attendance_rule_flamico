@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<!--     Report Action -->
+    <record id="payslip_report_template_action_report" model="ir.actions.report">
+        <field name="name">Payslip report template Report</field>
+        <field name="model">hr.payslip</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">attendance_rule_flamico.report_payslip_report_template</field>
+        <field name="report_file">attendance_rule_flamico.report_payslip_report_template</field>
+        <field name="binding_model_id" ref="hr_payroll.model_hr_payslip"/>
+        <field name="binding_type">report</field>
+    </record>
+
+</odoo>

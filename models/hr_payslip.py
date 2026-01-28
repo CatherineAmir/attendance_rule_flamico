@@ -113,14 +113,24 @@ class HrPayslip(models.Model):
                     approved_early_leave_hours = 0
                     if time_offs:
                         for time_off in time_offs:
+                            # Convert time off dates to local timezone
+                            # time_off_start = pytz.UTC.localize(time_off.date_from).astimezone(user_tz)
+                            # time_off_end = pytz.UTC.localize(time_off.date_to).astimezone(user_tz)
+
                             # Check if time off is on the same day
-                            if time_off.request_date_from == check_in_local.date():
+                            if time_off.request_unit_hours and time_off.request_date_from == check_in_local.date():
                                 time_off_start_float = float(time_off.request_hour_from)
                                 time_off_end_float = float(time_off.request_hour_to)
-
                                 if time_off_start_float >= last_check_out_float and time_off_end_float <= hour_to:
                                     approved_early_leave_hours += (time_off_end_float - time_off_start_float)
-
+                            elif time_off.request_unit_half and time_off.request_date_from == check_in_local.date():
+                                date_from_tz = pytz.UTC.localize(time_off.date_from).astimezone(user_tz)
+                                date_to_tz = pytz.UTC.localize(time_off.date_to).astimezone(user_tz)
+                                time_off_start_float = ((date_from_tz.hour * 60) + date_from_tz.minute) / 60
+                                time_off_end_float = ((date_to_tz.hour * 60) + date_to_tz.minute) / 60
+                                if round(time_off_start_float, 1) >= round(last_check_out_float, 1) and round(
+                                        last_check_out_float, 1) <= hour_to:
+                                    approved_early_leave_hours += (time_off_end_float - time_off_start_float)
                     # Adjust hour_to based on approved custom hours
                     adjusted_hour_to = hour_to - approved_early_leave_hours
                     # print("approved_early_leave_hours", approved_early_leave_hours)
@@ -282,15 +292,17 @@ class HrPayslip(models.Model):
                         ('first_attendance', '=', True),
                         ('lateness_deducted', '=', 'quarter_day'),
                     ])
-                    print("attendences_deducted_half_day",attendances_deducted_half_day)
-                    print("attendances_deducted_quarter_day",attendances_deducted_quarter_day)
+                    # print("attendences_deducted_half_day",attendances_deducted_half_day)
+                    # print("attendances_deducted_quarter_day",attendances_deducted_quarter_day)
                     amount_in_days = (attendances_deducted_half_day*0.5) + (attendances_deducted_quarter_day*0.25)
-                    print("amount_in_days",amount_in_days)
+                    # print("amount_in_days",amount_in_days)
                     rec.deducted_lateness_days = amount_in_days
                 elif rec.lateness_policy == 'apply_lateness_hourly_quarter':
                     total_lateness_hours = sum(rec.attendance_ids.filtered(lambda o: o.lateness_deducted_hours>0).mapped('lateness_deducted_hours'))
-                    print("total_lateness_hours:", total_lateness_hours)
-                    lateness_days = total_lateness_hours / 8
+                    # print("total_lateness_hours:", total_lateness_hours)
+                    hours_worked = rec.contract_id.resource_calendar_id.hours_per_day
+                    print("hours_worked:", hours_worked)
+                    lateness_days = total_lateness_hours / hours_worked
                     # Round to nearest quarter day
                     lateness_days_rounded = lateness_days
                     print("lateness_days_rounded:", lateness_days_rounded)

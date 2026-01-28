@@ -18,6 +18,7 @@ class AttendanceLog(models.Model):
         ('192.168.1.202',"Machine 2"),
         ('192.168.1.203',"Machine 3"),
         ('192.168.1.204',"Machine 4"),
+        ('192.168.1.205',"Machine 5"),
     ])
 
     attendance_date=fields.Date('Attendance Date',default=fields.Date.today())

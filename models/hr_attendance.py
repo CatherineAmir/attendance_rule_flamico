@@ -3,10 +3,13 @@ from odoo import fields, models, api, _
 from datetime import datetime, time, date
 from dateutil.relativedelta import relativedelta
 import pytz
-from pytz import timezone,utc
+from pytz import timezone, utc
 from odoo.addons.resource.models.utils import Intervals
 from datetime import timedelta
+
 local_tz = timezone('Africa/Cairo')
+
+
 class HrAttendance(models.Model):
     _inherit = 'hr.attendance'
     first_attendance = fields.Boolean(string='is First Attendance', default=False,
@@ -14,7 +17,8 @@ class HrAttendance(models.Model):
     lateness_deducted = fields.Selection([('none', 'None'), ('quarter_day', 'Quarter Day'), ('half_day', 'Half Day')],
                                          default='none', string='Lateness Deduction',
                                          compute='_calculate_lateness_deducted', store=True)
-    lateness_deducted_hours = fields.Float(string='Lateness Deducted Hours', compute='_compute_lateness_deducted_hours', store=True)
+    lateness_deducted_hours = fields.Float(string='Lateness Deducted Hours', compute='_compute_lateness_deducted_hours',
+                                           store=True,help="Total number of hours to be deducted due to lateness based on hourly quarter policy.")
     slip_id = fields.Many2one('hr.payslip', string='Slip')
     is_leave = fields.Boolean(default=False, store=True)
     absence = fields.Selection([
@@ -22,16 +26,15 @@ class HrAttendance(models.Model):
         ("day_day", "Day by day"),
         ("day_by_day_half", "Day by day and half"),
     ], default='no', string='Absence Deduction')
-    is_public_holiday = fields.Boolean(default=False, string='Is Public Holiday',store=True,compute='_is_public_holiday')
-    lateness_policy = fields.Selection(related='employee_id.contract_id.lateness_policy', string='Lateness Policy', store=True)
+    is_public_holiday = fields.Boolean(default=False, string='Is Public Holiday', store=True,
+                                       compute='_is_public_holiday')
+    lateness_policy = fields.Selection(related='employee_id.contract_id.lateness_policy', string='Lateness Policy',
+                                       store=True)
 
-
-
-
-    @api.depends('check_in','first_attendance','employee_id')
+    @api.depends('check_in', 'first_attendance', 'employee_id')
     def _compute_lateness_deducted_hours(self):
         for rec in self:
-            if rec.first_attendance and rec.employee_id and rec.employee_id.contract_id.work_with_attendance and  rec.employee_id.contract_id.lateness_policy == 'apply_lateness_hourly_quarter':
+            if rec.first_attendance and rec.employee_id and rec.employee_id.contract_id.work_with_attendance and rec.employee_id.contract_id.lateness_policy == 'apply_lateness_hourly_quarter':
                 schedule_id = rec.employee_id.resource_calendar_id
                 if schedule_id.is_day_shift_intersected:
                     work_from = max(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from')))))
@@ -40,12 +43,51 @@ class HrAttendance(models.Model):
                 calendar = rec._get_employee_calendar()
                 resource = rec.employee_id.resource_id
                 tz = timezone(resource.tz) if not calendar else timezone(calendar.tz)
-                working_hour_from = work_from
+                """
+                check approve lateness timeOff Custom hours 
+                """
                 check_in_local = rec.check_in.astimezone(tz)
+                approved_late_arrival_hours = 0
+                time_offs = self.env['hr.leave'].search([
+                    ('employee_id', '=', rec.employee_id.id),
+                    ('state', '=', 'validate'),
+                    '|',
+                    ('request_unit_hours', '=', True),  # Custom hours time off
+                    ('request_unit_half', '=', True),  # half day time off
+                    ('request_date_from', '=', check_in_local.date()),
+                ])
+                for time_off in time_offs:
+                    # Check if time off is on the same day and covers beginning of day
+                    if time_off.request_unit_hours:
+                        if time_off.request_date_from == check_in_local.date():
+                            time_off_start_float = float(time_off.request_hour_from)
+                            time_off_end_float = float(time_off.request_hour_to)
+                            # If time off starts at or before working hours
+                            if time_off_start_float <= work_from:
+                                approved_late_arrival_hours += (time_off_end_float - work_from)
+                    elif time_off.request_unit_half:
+                        if time_off.request_date_from == check_in_local.date():
+                            date_from_tz = time_off.date_from.astimezone(tz)
+                            date_to_tz = time_off.date_to.astimezone(tz)
+
+                            time_off_start_float = ((date_from_tz.hour * 60) + date_from_tz.minute) / 60
+                            time_off_end_float = ((date_to_tz.hour * 60) + date_to_tz.minute) / 60
+                            if round(time_off_start_float, 1) <= work_from:
+                                # Calculate approved late arrival hours
+                                approved_late_arrival_hours += (round(time_off_end_float, 1) - work_from)
+
+                working_hour_from = work_from + approved_late_arrival_hours
+
                 check_in_float = check_in_local.hour + (check_in_local.minute / 60)
                 lateness_hours = check_in_float - working_hour_from
-                if lateness_hours >= 1:
+                print("lateness_hours", lateness_hours)
+                print("check_in_float",check_in_float)
+                print("working_hour_from",working_hour_from)
+                tolerance_deducted_hours = schedule_id.tolerance_deducted_minutes / 60
+                if lateness_hours >= tolerance_deducted_hours:
                     rec.lateness_deducted_hours = lateness_hours
+                else:
+                    rec.lateness_deducted_hours = 0.0
             else:
                 rec.lateness_deducted_hours = 0.0
 
@@ -66,7 +108,7 @@ class HrAttendance(models.Model):
     #         else:
     #             rec.is_time_off = False
 
-    @api.depends('first_attendance','check_in')
+    @api.depends('first_attendance', 'check_in')
     def _is_public_holiday(self):
         for rec in self:
             if rec.check_in and rec.first_attendance:
@@ -76,16 +118,17 @@ class HrAttendance(models.Model):
                 end = start + relativedelta(days=1)
                 # print("end date:", end)
                 prev_day_attendance = self.env['resource.calendar.leaves'].search(
-                    [ ('date_from', '>=', start),
-                     ('date_to', '<', end)])
+                    [('date_from', '>=', start),
+                     ('date_to', '<', end),
+                     ('resource_id', '=', False),
+                     ])
                 # print("prev_day_attendance", prev_day_attendance)
                 if len(prev_day_attendance) > 0:
                     rec.is_public_holiday = True
                 else:
                     rec.is_public_holiday = False
 
-
-    def detect_absence_state(self,technical_attendances):
+    def detect_absence_state(self, technical_attendances):
         for rec in technical_attendances:
             if rec.in_mode == 'technical':
                 if rec.employee_id.contract_id.absence == 'no':
@@ -112,7 +155,7 @@ class HrAttendance(models.Model):
                         rec.absence = 'day_day'
                 elif rec.employee_id.contract_id.absence == 'day_by_day_half':
                     base_day = rec.check_in.date()
-                    print("check_in:", base_day)
+                    # print("check_in:", base_day)
                     prev_day = base_day - relativedelta(days=1)
                     start = datetime.combine(prev_day, time.min)
                     end = start + relativedelta(days=1)
@@ -122,10 +165,10 @@ class HrAttendance(models.Model):
                     # print("prev_day_attendance",prev_day_attendance.check_in)
                     if len(prev_day_attendance) > 0:
                         if rec.is_leave:
-                                if prev_day_attendance[0].in_mode == 'technical' and not  prev_day_attendance[0].is_leave:
-                                    rec.absence = 'day_day'
-                                else:
-                                    rec.absence = 'no'
+                            if prev_day_attendance[0].in_mode == 'technical' and not prev_day_attendance[0].is_leave:
+                                rec.absence = 'day_day'
+                            else:
+                                rec.absence = 'no'
                         # elif rec.is_time_off:
                         #     rec.absence = 'no'
                         else:
@@ -139,9 +182,6 @@ class HrAttendance(models.Model):
                         rec.absence = 'day_day'
                 else:
                     rec.absence = 'no'
-
-
-
 
     def detect_is_timeoff(self, technical_attendances):
         for rec in technical_attendances:
@@ -190,10 +230,46 @@ class HrAttendance(models.Model):
             print("working_hours", working_hours)
             if rec.first_attendance:
                 if rec.employee_id.contract_id.work_with_attendance and rec.employee_id.contract_id.lateness_policy == 'apply_lateness_rules':
+                    """
+                                    check approve lateness timeOff Custom hours 
+                                    """
+                    check_in_local = rec.check_in.astimezone(tz)
+                    approved_late_arrival_hours = 0
+                    time_offs = self.env['hr.leave'].search([
+                        ('employee_id', '=', rec.employee_id.id),
+                        ('state', '=', 'validate'),
+                        '|',
+                        ('request_unit_hours', '=', True),  # Custom hours time off
+                        ('request_unit_half', '=', True),  # half day time off
+                        ('request_date_from', '=', check_in_local.date()),
+                    ])
+                    for time_off in time_offs:
+                        # Check if time off is on the same day and covers beginning of day
+                        if time_off.request_unit_hours:
+                            if time_off.request_date_from == check_in_local.date():
+                                time_off_start_float = float(time_off.request_hour_from)
+                                time_off_end_float = float(time_off.request_hour_to)
+                                # If time off starts at or before working hours
+                                if time_off_start_float <= work_from:
+                                    approved_late_arrival_hours += (time_off_end_float - work_from)
+                        elif time_off.request_unit_half:
+                            if time_off.request_date_from == check_in_local.date():
+                                date_from_tz = time_off.date_from.astimezone(tz)
+                                date_to_tz = time_off.date_to.astimezone(tz)
+
+                                time_off_start_float = ((date_from_tz.hour * 60) + date_from_tz.minute) / 60
+                                time_off_end_float = ((date_to_tz.hour * 60) + date_to_tz.minute) / 60
+                                if round(time_off_start_float, 1) <= work_from:
+                                    # Calculate approved late arrival hours
+                                    approved_late_arrival_hours += (round(time_off_end_float, 1) - work_from)
+
+                    working_hours = work_from + approved_late_arrival_hours
+
                     tolerance_quarter_hourly_lateness = schedule_id.lateness_deducted_hourly_quarter
                     tolerance_half_hourly_lateness = schedule_id.lateness_deducted_hourly_half
                     check_in_date = rec.check_in.date()
-                    custom_time_quarter_day = rec.add_float_hours_to_time(working_hours, tolerance_quarter_hourly_lateness)
+                    custom_time_quarter_day = rec.add_float_hours_to_time(working_hours,
+                                                                          tolerance_quarter_hourly_lateness)
                     custom_time_half_day = rec.add_float_hours_to_time(working_hours, tolerance_half_hourly_lateness)
                     max_check_in_quarter = datetime.combine(check_in_date, custom_time_quarter_day)
                     max_check_in_tz_quarter = tz.localize(max_check_in_quarter)
@@ -279,19 +355,18 @@ class HrAttendance(models.Model):
     #         self.env.cr.savepoint()
     #         self.env.flush_all()
 
-
     def _cron_absence_detection(self):
         """
         Objective is to create technical attendances on absence days to have negative overtime created for that day
         """
-        number_of_days = 12
+        number_of_days = 20
         # yesterday = datetime.today().replace(hour=0, minute=0, second=0) - relativedelta(days=1)
 
         companies = self.env['res.company'].search([('absence_management', '=', True)])
         if not companies:
             return
 
-        TARGET_EMP_ID = 9964  # NEW: limit cron to this employee only
+        TARGET_EMP_ID = 10553  # NEW: limit cron to this employee only
 
         for d in range(1, number_of_days + 1):
             technical_attendances_vals = []
@@ -328,11 +403,12 @@ class HrAttendance(models.Model):
                 work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
                 if len(work_from):
                     # print("work_from", work_from)
-                    start_hour = int(max(work_from) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_from[0])
+                    start_hour = int(
+                        max(work_from) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_from[
+                            0])
                     print("start_hour", start_hour)
                 else:
                     start_hour = 9
-
 
                 local_day_start = local_tz.localize(day) + relativedelta(
                     hours=start_hour)
@@ -369,8 +445,6 @@ class HrAttendance(models.Model):
             self.env.cr.commit()
             self.env.cr.savepoint()
             self.env.flush_all()
-
-
 
     @api.depends("check_in", "in_mode")
     def _calculate_first_attendance(self):

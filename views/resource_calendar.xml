@@ -9,8 +9,21 @@
             <field name="priority" eval="8"/>
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='hours_per_day']" position="after">
-                    <field name="lateness_deducted_hourly_quarter"/>
-                    <field name="lateness_deducted_hourly_half"/>
+                    <label for="lateness_deducted_hourly_quarter"/>
+                    <div>
+                        <field name="lateness_deducted_hourly_quarter" style="width: 10%"/>
+                        <span>Hours</span>
+                    </div>
+                    <label for="lateness_deducted_hourly_half"/>
+                    <div>
+                        <field name="lateness_deducted_hourly_half" style="width: 10%"/>
+                        <span>Hours</span>
+                    </div>
+                    <label for="tolerance_deducted_minutes"/>
+                    <div>
+                        <field name="tolerance_deducted_minutes" style="width: 10%"/>
+                        <span>Minutes</span>
+                    </div>
                 </xpath>
                 <xpath expr="//field[@name='tz']" position="after">
                     <field name="is_day_shift_intersected" widget="boolean_toggle"/>
