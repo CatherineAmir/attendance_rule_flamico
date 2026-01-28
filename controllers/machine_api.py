@@ -220,7 +220,7 @@ class AttendanceMachineIntegration(http.Controller):
         request.env.cr.savepoint()
         request.env['hr.attendance'].sudo()._cron_absence_detection()
         return Response(json.dumps({'result': 'success', 'status_code': 202}), status=200, mimetype='application/json')
-
+    
     def create_attendance_log(self, attendance_list):
         _logger.info('create_attendance_log')
         attendance_log_list = []
