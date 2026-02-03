@@ -6,7 +6,7 @@ import pytz
 from pytz import timezone, utc
 from odoo.addons.resource.models.utils import Intervals
 from datetime import timedelta
-
+from collections import defaultdict
 local_tz = timezone('Africa/Cairo')
 
 
@@ -107,6 +107,29 @@ class HrAttendance(models.Model):
     #                     rec.is_time_off = True
     #         else:
     #             rec.is_time_off = False
+    @api.depends('worked_hours', 'is_public_holiday')
+    def _compute_overtime_hours(self):
+        super()._compute_overtime_hours()
+
+        for attendance in self:
+            if attendance.is_public_holiday:
+                weekday_attendances = attendance.employee_id.resource_calendar_id.attendance_ids.filtered(
+                    lambda r: r.dayofweek == str(attendance.check_in.weekday())
+                )
+
+                if weekday_attendances:
+                    if attendance.employee_id.contract_id.resource_calendar_id.is_day_shift_intersected:
+                        work_from = max(weekday_attendances.mapped('hour_from'))
+                        work_to = min(weekday_attendances.mapped('hour_to'))
+                        hours_worked = (24 - work_from) + work_to
+                    else:
+                        work_from = min(weekday_attendances.mapped('hour_from'))
+                        work_to = max(weekday_attendances.mapped('hour_to'))
+                        hours_worked = work_to - work_from
+
+                    attendance.overtime_hours = attendance.worked_hours - hours_worked
+                else:
+                    attendance.overtime_hours = 0
 
     @api.depends('first_attendance', 'check_in')
     def _is_public_holiday(self):
@@ -114,15 +137,15 @@ class HrAttendance(models.Model):
             if rec.check_in and rec.first_attendance:
                 check_in_date = rec.check_in.date()
                 start = datetime.combine(check_in_date, time.min)
-                # print("start date:", start)
+                # print("start date:", start <= datetime(2026, 1, 29, 0, 0))
                 end = start + relativedelta(days=1)
-                # print("end date:", end)
+                # print("end date:", end > datetime(2026, 1, 29, 23, 59))
                 prev_day_attendance = self.env['resource.calendar.leaves'].search(
-                    [('date_from', '>=', start),
-                     ('date_to', '<', end),
+                    [('date_from', '<=', end),
+                     ('date_to', '>=', start),
                      ('resource_id', '=', False),
                      ])
-                # print("prev_day_attendance", prev_day_attendance)
+                print("prev_day_attendance", prev_day_attendance.read(['name', 'date_from', 'date_to']))
                 if len(prev_day_attendance) > 0:
                     rec.is_public_holiday = True
                 else:
@@ -218,9 +241,9 @@ class HrAttendance(models.Model):
         for rec in self:
             schedule_id = rec.employee_id.resource_calendar_id
             if schedule_id.is_day_shift_intersected:
-                work_from = max(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from')))))
+                work_from = max(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from') if schedule_id.attendance_ids else [8]))))
             else:
-                work_from = min(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from')))))
+                work_from = min(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from') if schedule_id.attendance_ids else [8]))))
             # work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
             print("work_from", work_from)
             calendar = rec._get_employee_calendar()
@@ -355,26 +378,30 @@ class HrAttendance(models.Model):
     #         self.env.cr.savepoint()
     #         self.env.flush_all()
 
-    def _cron_absence_detection(self):
+    def cron_absence_detection(self,number_of_days=30,end_date=None):
         """
         Objective is to create technical attendances on absence days to have negative overtime created for that day
         """
-        number_of_days = 20
+        # number_of_days = 20
         # yesterday = datetime.today().replace(hour=0, minute=0, second=0) - relativedelta(days=1)
 
         companies = self.env['res.company'].search([('absence_management', '=', True)])
         if not companies:
             return
 
-        TARGET_EMP_ID = 10553  # NEW: limit cron to this employee only
-
-        for d in range(1, number_of_days + 1):
+        TARGET_EMP_ID = 10570  # NEW: limit cron to this employee only
+        if end_date is None:
+            end_date = datetime.today()
+        elif isinstance(end_date, date) and not isinstance(end_date, datetime):
+            end_date = datetime.combine(end_date, datetime.min.time())
+        for d in range(0, number_of_days + 1):
             technical_attendances_vals = []
-            day = datetime.today().replace(hour=0, minute=0, second=0) - relativedelta(days=number_of_days - d)
+            day = end_date.replace(hour=0, minute=0, second=0) - relativedelta(days=number_of_days - d)
             print("day", day)
             today = datetime.today()
             # print("today", today)
             if today.date() == day.date():
+                print("im breaking")
                 break
 
             # CHANGED: only check overtime for the target employee
@@ -390,7 +417,6 @@ class HrAttendance(models.Model):
                 ('employee_id', '=', TARGET_EMP_ID),
             ]
             ).employee_id
-
             # CHANGED: only consider the target employee, and only if absent
             absent_employees = self.env['hr.employee'].search([
                 ('id', '=', TARGET_EMP_ID),  # NEW

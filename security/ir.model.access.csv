@@ -1,2 +1,3 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_attendance_attendance_log,access.attendance_log,model_hr_attendance_log,base.group_user,1,0,0,0
+access_absence_deduction,access.absence_deduction,model_absence_deduction,base.group_user,1,1,1,1

@@ -18,8 +18,8 @@ class HrPayslip(models.Model):
     deducted_absence_amount = fields.Float(string='Deducted Absence Amount', default=0,tracking=True)
     actual_deducted_absence_amount = fields.Float(string='Actual Deducted Absence Amount', tracking=True)
 
-    number_of_public_holidays = fields.Float(string='Number of Public Holidays', default=0, tracking=True)
-    total_bonus_public_holiday = fields.Float(string='Bonus Public Holiday', default=0, tracking=True)
+    number_of_public_holidays = fields.Float(string='Number of Public Holidays', default=0, tracking=True,compute='_compute_public_holidays')
+    total_bonus_public_holiday = fields.Float(string='Bonus Public Holiday', default=0, tracking=True,compute='_compute_public_holidays')
 
     early_leave_hours = fields.Float(string='Early Leave Hours', default=0,tracking=True)
     early_leave_amount = fields.Float(string='Early Leave Amount', default=0,tracking=True)
@@ -132,17 +132,17 @@ class HrPayslip(models.Model):
                                         last_check_out_float, 1) <= hour_to:
                                     approved_early_leave_hours += (time_off_end_float - time_off_start_float)
                     # Adjust hour_to based on approved custom hours
-                    adjusted_hour_to = hour_to - approved_early_leave_hours
-                    # print("approved_early_leave_hours", approved_early_leave_hours)
-                    # print("adjusted_hour_to", adjusted_hour_to)
+                    adjusted_hour_to = hour_to - approved_early_leave_hours - rec.contract_id.resource_calendar_id.tolerance_deducted_early_leave_minutes / 60
+                    print("approved_early_leave_hours", approved_early_leave_hours)
+                    print("adjusted_hour_to", adjusted_hour_to)
                     # print("")
                     # Calculate early leave with adjusted hour_to
                     if last_check_out_float < adjusted_hour_to:
-                        print("adjusted_hour_to",adjusted_hour_to)
-                        print("last_check_out_float", last_check_out_float)
+                        # print("adjusted_hour_to",adjusted_hour_to)
+                        # print("last_check_out_float", last_check_out_float)
                         number_of_hours_early_leave = (adjusted_hour_to - last_check_out_float)
                         early_leave_deducted += number_of_hours_early_leave
-                        print("number_of_minutes_early", early_leave_deducted)
+                        # print("number_of_minutes_early", early_leave_deducted)
                 rec.early_leave_hours = early_leave_deducted
                 rec.early_leave_amount = rec.early_leave_hours * rec.contract_id.hourly_rate
                 rec.actual_early_leave_amount = rec.early_leave_amount

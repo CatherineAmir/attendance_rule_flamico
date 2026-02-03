@@ -21,6 +21,7 @@
         'views/resource_calendar.xml',
         'views/hr_payslip.xml',
         'views/attendance_log.xml',
+        'wizard/absence_deduction.xml',
     ],
     'license': 'LGPL-3',
     'installable': True,

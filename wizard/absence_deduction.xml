@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="absence_deduction_form_view" model="ir.ui.view">
+            <field name="name">absence.deduction.form</field>
+            <field name="model">absence.deduction</field>
+            <field name="arch" type="xml">
+                <form string="ModelTitle">
+                    <sheet>
+                        <group>
+                            <field name="date"/>
+                            <field name="end_date"/>
+                            <field name="number_of_days"/>
+                        </group>
+                        <footer>
+                            <button string="Confirm" type="object" name="action_absence_deduction"
+                                    class="btn btn-primary"/>
+                        </footer>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="absence_deduction_act_window" model="ir.actions.act_window">
+            <field name="name">Absence Deduction</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">absence.deduction</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem id="absence_deduction" name="Absence Deduction" parent="hr_attendance.menu_hr_attendance_root"
+              action="attendance_rule_flamico.absence_deduction_act_window" sequence="100"/>
+    </data>
+</odoo>

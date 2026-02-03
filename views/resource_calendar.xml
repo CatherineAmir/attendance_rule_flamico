@@ -24,6 +24,11 @@
                         <field name="tolerance_deducted_minutes" style="width: 10%"/>
                         <span>Minutes</span>
                     </div>
+                    <label for="tolerance_deducted_early_leave_minutes"/>
+                    <div>
+                        <field name="tolerance_deducted_early_leave_minutes" style="width: 10%"/>
+                        <span>Minutes</span>
+                    </div>
                 </xpath>
                 <xpath expr="//field[@name='tz']" position="after">
                     <field name="is_day_shift_intersected" widget="boolean_toggle"/>
