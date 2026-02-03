@@ -159,6 +159,8 @@ class HrAttendance(models.Model):
                 elif rec.employee_id.contract_id.absence == 'day_day':
                     # check if the previous day of holiday is absence
                     if rec.is_leave:
+                        rec.absence = 'no'
+                    else:
                         base_day = rec.check_in.date()
                         prev_day = base_day - relativedelta(days=1)
                         start = datetime.combine(prev_day, time.min)
@@ -167,42 +169,54 @@ class HrAttendance(models.Model):
                             [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id), ('check_in', '>=', start),
                              ('check_in', '<', end)], order='check_in asc')
                         if len(prev_day_attendance) > 0:
-                            if prev_day_attendance[0].in_mode == 'technical' and not prev_day_attendance[0].is_leave:
-                                rec.absence = 'day_day'
+                            if prev_day_attendance[0].in_mode == 'technical' and prev_day_attendance[0].is_leave:
+                                prev_day_two = prev_day - relativedelta(days=1)
+                                start_two = datetime.combine(prev_day_two, time.min)
+                                end_two = start_two + relativedelta(days=1)
+                                prev_day_two_attendance = self.env['hr.attendance'].search(
+                                    [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id),
+                                     ('check_in', '>=', start_two),
+                                     ('check_in', '<', end_two)], order='check_in asc')
+                                if len(prev_day_two_attendance) > 0 and prev_day_two_attendance[0].in_mode == 'technical' and prev_day_two_attendance[0].absence == 'day_day':
+                                    prev_day_attendance[0].write({'absence': 'day_day'})
+                                    rec.absence = 'day_day'
+                                else:
+                                    rec.absence = 'day_day'
                             else:
-                                rec.absence = 'no'
+                                rec.absence = 'day_day'
                         else:
-                            ######################### might the previous day is public holiday #####################
-                            rec.absence = 'no'
-                    else:
-                        rec.absence = 'day_day'
+                            rec.absence = 'day_day'
                 elif rec.employee_id.contract_id.absence == 'day_by_day_half':
-                    base_day = rec.check_in.date()
-                    # print("check_in:", base_day)
-                    prev_day = base_day - relativedelta(days=1)
-                    start = datetime.combine(prev_day, time.min)
-                    end = start + relativedelta(days=1)
-                    prev_day_attendance = self.env['hr.attendance'].search(
-                        [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id), ('check_in', '>=', start),
-                         ('check_in', '<', end)], order='check_in asc')
-                    # print("prev_day_attendance",prev_day_attendance.check_in)
-                    if len(prev_day_attendance) > 0:
-                        if rec.is_leave:
-                            if prev_day_attendance[0].in_mode == 'technical' and not prev_day_attendance[0].is_leave:
-                                rec.absence = 'day_day'
-                            else:
-                                rec.absence = 'no'
-                        # elif rec.is_time_off:
-                        #     rec.absence = 'no'
-                        else:
-                            if prev_day_attendance[0].absence == 'day_day':
-                                rec.absence = 'day_by_day_half'
-                            elif prev_day_attendance[0].absence == 'day_by_day_half':
-                                rec.absence = 'day_by_day_half'
-                            elif prev_day_attendance[0].absence == 'no':
-                                rec.absence = 'day_day'
+                    if rec.is_leave:
+                        rec.absence = 'no'
                     else:
-                        rec.absence = 'day_day'
+                        base_day = rec.check_in.date()
+                        prev_day = base_day - relativedelta(days=1)
+                        start = datetime.combine(prev_day, time.min)
+                        end = start + relativedelta(days=1)
+                        prev_day_attendance = self.env['hr.attendance'].search(
+                            [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id), ('check_in', '>=', start),
+                             ('check_in', '<', end)], order='check_in asc')
+                        if len(prev_day_attendance) > 0:
+                            if prev_day_attendance[0].in_mode == 'technical' and prev_day_attendance[0].is_leave:
+                                prev_day_two = prev_day - relativedelta(days=1)
+                                start_two = datetime.combine(prev_day_two, time.min)
+                                end_two = start_two + relativedelta(days=1)
+                                prev_day_two_attendance = self.env['hr.attendance'].search(
+                                    [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id),
+                                     ('check_in', '>=', start_two),
+                                     ('check_in', '<', end_two)], order='check_in asc')
+                                if len(prev_day_two_attendance) > 0 and prev_day_two_attendance[0].in_mode == 'technical' and prev_day_two_attendance[0].absence in ['day_by_day_half', 'day_day']:
+                                    prev_day_attendance[0].write({'absence': 'day_day'})
+                                    rec.absence = 'day_by_day_half'
+                                else:
+                                    rec.absence = 'day_day'
+                            elif prev_day_attendance[0].in_mode == 'technical' and  prev_day_attendance[0].absence in['day_by_day_half', 'day_day']:
+                                rec.absence = 'day_by_day_half'
+                            else:
+                                rec.absence = 'day_day'
+                        else:
+                            rec.absence = 'day_day'
                 else:
                     rec.absence = 'no'
 
@@ -389,7 +403,7 @@ class HrAttendance(models.Model):
         if not companies:
             return
 
-        TARGET_EMP_ID = 10570  # NEW: limit cron to this employee only
+        # TARGET_EMP_ID = 10569  # NEW: limit cron to this employee only
         if end_date is None:
             end_date = datetime.today()
         elif isinstance(end_date, date) and not isinstance(end_date, datetime):
@@ -414,12 +428,12 @@ class HrAttendance(models.Model):
 
                 ('check_in', '>=', fields.datetime.combine(day.date(), fields.datetime.min.time())),
                 ('check_in', '<=', fields.datetime.combine(day.date(), fields.datetime.max.time())),
-                ('employee_id', '=', TARGET_EMP_ID),
+                # ('employee_id', '=', TARGET_EMP_ID),
             ]
             ).employee_id
             # CHANGED: only consider the target employee, and only if absent
             absent_employees = self.env['hr.employee'].search([
-                ('id', '=', TARGET_EMP_ID),  # NEW
+                # ('id', '=', TARGET_EMP_ID),  # NEW
                 ('id', 'not in', checked_in_employees.ids),
                 ('company_id', 'in', companies.ids),
             ])
