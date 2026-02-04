@@ -14,8 +14,10 @@ class HrPayslip(models.Model):
     deducted_lateness_amount = fields.Float(string='Deducted Lateness Amount',default=0,tracking=True)
     actual_deducted_lateness_amount = fields.Float(string='Actual Deducted Lateness Amount',tracking=True)
 
-    deducted_absence_days = fields.Float(string='Deducted Absence Days', default=0,tracking=True)
-    deducted_absence_amount = fields.Float(string='Deducted Absence Amount', default=0,tracking=True)
+
+    edit_manually = fields.Boolean(string='Edit Manually', default=False,tracking=True)
+    deducted_absence_days = fields.Float(string='Deducted Absence Days', default=0,tracking=True,compute='_compute_absence_days',store=True)
+    deducted_absence_amount = fields.Float(string='Deducted Absence Amount', default=0,tracking=True,compute='_calculate_absence_deducted_amount',store=True)
     actual_deducted_absence_amount = fields.Float(string='Actual Deducted Absence Amount', tracking=True)
 
     number_of_public_holidays = fields.Float(string='Number of Public Holidays', default=0, tracking=True,compute='_compute_public_holidays')
@@ -32,11 +34,12 @@ class HrPayslip(models.Model):
 
 
 
+
     def compute_sheet(self):
         self._compute_lateness_days()
         self._calculate_lateness_deducted_amount()
-        self._compute_absence_days()
-        self._calculate_absence_deducted_amount()
+        # self._compute_absence_days()
+        # self._calculate_absence_deducted_amount()
         self._compute_public_holidays()
         self._compute_overtime_hours()
         self._compute_early_leave_hours()
@@ -240,9 +243,11 @@ class HrPayslip(models.Model):
     #                 else:
     #                     attendance.is_leave = False
 
-    @api.depends('attendance_ids')
+    @api.depends('attendance_ids','edit_manually')
     def _compute_absence_days(self):
         for rec in self:
+            if rec.edit_manually:
+                continue
             if rec.attendance_ids:
                 attendance_absence_deducted_day_by_day = self.env['hr.attendance'].search_count(
                     domain=[
@@ -259,13 +264,11 @@ class HrPayslip(models.Model):
                     ]
                 )
                 total_deducted_days = attendance_absence_deducted_day_by_day + (attendance_absence_deducted_day_by_day_half * 1.5)
-                print("total_deducted_days:", total_deducted_days)
                 rec.deducted_absence_days = total_deducted_days
-                print("deducted_absence_days:", rec.deducted_absence_days)
             else:
                 rec.deducted_absence_days = 0
 
-    @api.depends('deducted_lateness_days')
+    @api.depends('deducted_absence_days','edit_manually')
     def _calculate_absence_deducted_amount(self):
         for rec in self:
             if rec.deducted_absence_days != 0:

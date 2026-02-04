@@ -15,12 +15,13 @@
 
                                 <field name="deducted_lateness_days" readonly="1"/>
                                 <field name="deducted_lateness_amount" readonly="1"/>
-                                <field name="actual_deducted_lateness_amount"/>
+<!--                                <field name="actual_deducted_lateness_amount"/>-->
                             </group>
                             <group string="Absence Deductions">
-                                <field name="deducted_absence_days" readonly="1"/>
+                                <field name="edit_manually" widget="boolean_toggle"/>
+                                <field name="deducted_absence_days" readonly="not edit_manually" />
                                 <field name="deducted_absence_amount" readonly="1"/>
-                                <field name="actual_deducted_absence_amount"/>
+<!--                                <field name="actual_deducted_absence_amount" readonly="1"/>-->
                             </group>
                         </group>
                         <group>
@@ -38,7 +39,7 @@
                             <group string="Early Leaving Deductions">
                                 <field name="early_leave_hours" readonly="1"/>
                                 <field name="early_leave_amount" readonly="1"/>
-                                <field name="actual_early_leave_amount"/>
+<!--                                <field name="actual_early_leave_amount"/>-->
                             </group>
                         </group>
                     </page>
