@@ -28,7 +28,7 @@ class HrPayslip(models.Model):
     overtime_hours = fields.Float(string='Overtime Hours', default=0,compute='_compute_overtime_hours',tracking=True)
     lateness_policy = fields.Selection(related='contract_id.lateness_policy', string='Lateness Policy', store=True)
     weekly_reward = fields.Float(string='Weekly Reward', compute='_compute_weekly_reward', store=True)
-
+    total_attendance_days=fields.Integer(string="Total Attendance Days", compute='_compute_weekly_reward', store=True)
 
 
 
@@ -47,6 +47,9 @@ class HrPayslip(models.Model):
 
         return True
 
+
+
+
     @api.depends('attendance_ids','contract_id.weekly_reward')
     def _compute_weekly_reward(self):
         for rec in self:
@@ -56,6 +59,7 @@ class HrPayslip(models.Model):
                     week_reward_value = rec.contract_id.weekly_reward
                     number_of_worked_days = len(set(rec.contract_id.resource_calendar_id.attendance_ids.filtered(
                         lambda r: not r.work_entry_type_id.is_leave).mapped('dayofweek')))
+                    rec.total_attendance_days=len(attendance_days)
                     daily_reward = week_reward_value / number_of_worked_days
                     total_reward = daily_reward * len(attendance_days)
                     rec.weekly_reward = total_reward

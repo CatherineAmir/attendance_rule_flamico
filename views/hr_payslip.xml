@@ -12,6 +12,7 @@
                     <page name="attendance_rule" string="Attendance Rule">
                         <group>
                             <group string="Lateness Deductions">
+
                                 <field name="deducted_lateness_days" readonly="1"/>
                                 <field name="deducted_lateness_amount" readonly="1"/>
                                 <field name="actual_deducted_lateness_amount"/>
@@ -28,6 +29,7 @@
                                 <field name="total_bonus_public_holiday"/>
                             </group>
                             <group string="overtime and Rewards">
+                                <field name="total_attendance_days"/>
                                 <field name="overtime_hours"/>
                                 <field name="weekly_reward"/>
                             </group>
