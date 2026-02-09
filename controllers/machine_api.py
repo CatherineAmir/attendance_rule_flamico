@@ -36,7 +36,6 @@ class AttendanceMachineIntegration(http.Controller):
                 [('attendance_machine_id', '=', attendance['user_id'])], limit=1)
             # print("employee_id",employee_id)
             if employee_id:
-
                 naive_dt = datetime.strptime(attendance['timestamp'], '%Y-%m-%dT%H:%M:%S')
                 localized_dt = local_tz.localize(naive_dt)
                 attendance_utc_dt = datetime.strptime(localized_dt.astimezone(utc).strftime('%Y-%m-%d %H:%M:%S'),
@@ -218,7 +217,7 @@ class AttendanceMachineIntegration(http.Controller):
 
         request.env.cr.commit()
         request.env.cr.savepoint()
-        request.env['hr.attendance'].sudo()._cron_absence_detection()
+        # request.env['hr.attendance'].sudo()._cron_absence_detection()
         return Response(json.dumps({'result': 'success', 'status_code': 202}), status=200, mimetype='application/json')
     
     def create_attendance_log(self, attendance_list):

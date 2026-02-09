@@ -135,18 +135,21 @@ class HrAttendance(models.Model):
     def _is_public_holiday(self):
         for rec in self:
             if rec.check_in and rec.first_attendance:
-                check_in_date = rec.check_in.date()
-                start = datetime.combine(check_in_date, time.min)
-                # print("start date:", start <= datetime(2026, 1, 29, 0, 0))
-                end = start + relativedelta(days=1)
-                # print("end date:", end > datetime(2026, 1, 29, 23, 59))
+                calendar = rec._get_employee_calendar()
+                resource = rec.employee_id.resource_id
+                tz = timezone(resource.tz) if not calendar else timezone(calendar.tz)
+                check_in_local = rec.check_in.astimezone(tz)
+                start = tz.localize(datetime.combine(check_in_local.date(), time.min))
+                end = tz.localize(datetime.combine(check_in_local.date(), time.max))
                 prev_day_attendance = self.env['resource.calendar.leaves'].search(
                     [('date_from', '<=', end),
                      ('date_to', '>=', start),
                      ('resource_id', '=', False),
                      ])
-                print("prev_day_attendance", prev_day_attendance.read(['name', 'date_from', 'date_to']))
-                if len(prev_day_attendance) > 0:
+                # print("comparison", prev_day_attendance.date_from <= end)
+                leave_from_local = prev_day_attendance.date_from.astimezone(tz) if prev_day_attendance.date_from else False
+                leave_to_local = prev_day_attendance.date_to.astimezone(tz) if prev_day_attendance.date_to else False
+                if len(prev_day_attendance) > 0 and leave_from_local <= end and leave_to_local >= start:
                     rec.is_public_holiday = True
                 else:
                     rec.is_public_holiday = False
@@ -232,8 +235,19 @@ class HrAttendance(models.Model):
                 if len(day_off):
                     rec.is_leave = True
 
+
+    def _compute_color(self):
+        for attendance in self:
+            if attendance.check_out:
+                attendance.color = 1 if attendance.worked_hours > 24 or attendance.out_mode == 'technical' else 0
+            else:
+                attendance.color = 1 if attendance.check_in < (datetime.today() - timedelta(days=1)) else 10
+
+
     def calculate_test_button(self):
         self._calculate_lateness_deducted()
+        self._is_public_holiday()
+        self._compute_color()
         # self._is_time_off_approved()
         # self.detect_is_timeoff()
         # self.detect_absence_state()
