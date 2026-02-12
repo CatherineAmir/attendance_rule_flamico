@@ -10,6 +10,7 @@ class AbsenseDeduction(models.TransientModel):
     number_of_days = fields.Integer(string="Number of Days",
                                     help="Number of days to to detect absence from this machine.",
                                     compute="_compute_number_of_days")
+    department_ids=fields.Many2many('hr.department',required=True)
 
     @api.depends('date', 'end_date')
     def _compute_number_of_days(self):
@@ -26,4 +27,4 @@ class AbsenseDeduction(models.TransientModel):
         """
         self.ensure_one()
         attendance_obj = self.env['hr.attendance']
-        attendance_obj.cron_absence_detection(self.number_of_days - 1, self.end_date)
+        attendance_obj.cron_absence_detection(self.department_ids,self.number_of_days - 1, self.end_date)

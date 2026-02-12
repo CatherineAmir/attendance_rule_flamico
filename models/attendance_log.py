@@ -28,5 +28,9 @@ class AttendanceLog(models.Model):
     error_exist=fields.Boolean('Attendance Created',default=False)
 
     error_message=fields.Text('Error Message')
+    department_id = fields.Many2one(related='employee_id.department_id', string='Department')
+    parent_department_id = fields.Many2one(related='department_id.parent_id', string='Parent Department')
+
+
 
 

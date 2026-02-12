@@ -12,6 +12,7 @@
                             <field name="date"/>
                             <field name="end_date"/>
                             <field name="number_of_days"/>
+                            <field name="department_ids" widget="many2many_tags"/>
                         </group>
                         <footer>
                             <button string="Confirm" type="object" name="action_absence_deduction"

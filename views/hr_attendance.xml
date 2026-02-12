@@ -21,10 +21,18 @@
                     <field name="is_leave" readonly="1"/>
                     <field name="is_public_holiday" readonly="1"/>
                     <!--                    <field name="is_time_off" readonly="1"/>-->
-                    <field name="absence" readonly="1"/>
+                    <field name="absence" readonly="0"/>
+                </xpath>
+                <xpath expr="//field[@name='employee_id']" position="after">
+                    <field name="department_id"/>
+                    <field name="parent_department"/>
+                </xpath>
+                  <xpath expr="//field[@name='in_mode']" position="attributes">
+                    <attribute name="readonly">0</attribute>
                 </xpath>
             </field>
         </record>
+
         <record id="hr_attendance_tree_inherit" model="ir.ui.view">
             <field name="name">hr_attendance.tree.inherit</field>
             <field name="model">hr.attendance</field>
@@ -40,6 +48,10 @@
                     <field name="is_public_holiday"/>
                     <!--                    <field name="is_time_off"/>-->
                     <field name="absence"/>
+                </xpath>
+                <xpath expr="//field[@name='employee_id']" position="after">
+                    <field name="department_id"/>
+                    <field name="parent_department"/>
                 </xpath>
             </field>
         </record>

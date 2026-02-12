@@ -33,6 +33,8 @@ class HrPayslip(models.Model):
     total_attendance_days=fields.Integer(string="Total Attendance Days", compute='_compute_weekly_reward', store=True)
 
 
+    parent_department = fields.Many2one(related='department_id.parent_id', string='Parent Department', store=True)
+
 
 
     def compute_sheet(self):

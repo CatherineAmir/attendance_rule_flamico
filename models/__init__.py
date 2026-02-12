@@ -4,3 +4,4 @@ from . import hr_attendance
 from . import resource_calendar
 from . import hr_payslip
 from . import attendance_log
+from . import hr_employee

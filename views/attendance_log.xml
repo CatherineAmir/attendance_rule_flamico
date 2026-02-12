@@ -8,6 +8,8 @@
                 <field name="attendance_date"/>
                 <field name="employee_attendance_id"/>
                 <field name="employee_id"/>
+                <field name="department_id"/>
+                <field name="parent_department_id"/>
                 <field name="punch"/>
                 <field name="time_stamp"/>
                 <field name="machine_id"/>
@@ -28,6 +30,8 @@
             <filter name="no_error_exist" string="No Error " domain="[('error_exist','=',False)]"/>
 
             <filter name="group_by_employee" string="Group by Employee" context="{'group_by':'employee_id'}"/>
+              <filter name="group_by_department" string="Group by Department" context="{'group_by':'department_id'}"/>
+              <filter name="group_by_parent" string="Group by Parent Department" context="{'group_by':'parent_department_id'}"/>
             <filter name="group_by_date" string="Group by Date" context="{'group_by':'attendance_date'}"/>
           </search>
         </field>
