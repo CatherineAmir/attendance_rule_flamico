@@ -38,6 +38,7 @@ class HrPayslip(models.Model):
 
 
     def compute_sheet(self):
+        self._get_attendance_by_payslip()
         self._compute_lateness_days()
         self._calculate_lateness_deducted_amount()
         # self._compute_absence_days()

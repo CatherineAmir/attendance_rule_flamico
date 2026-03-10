@@ -180,7 +180,7 @@ class HrAttendance(models.Model):
                                 prev_day_two_attendance = self.env['hr.attendance'].search_read(
                                     [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id),
                                      ('check_in', '>=', start_two),
-                                     ('check_in', '<', end_two)],['in_mode','absense'], order='check_in asc')
+                                     ('check_in', '<', end_two)],['in_mode','absence'], order='check_in asc')
                                 if len(prev_day_two_attendance) > 0 and prev_day_two_attendance[0]['in_mode'] == 'technical' and prev_day_two_attendance[0]['absence'] == 'day_day':
                                     prev_day_attendance[0].write({'absence': 'day_day'})
                                     rec.absence = 'day_day'
