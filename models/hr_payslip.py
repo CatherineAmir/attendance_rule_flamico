@@ -96,8 +96,15 @@ class HrPayslip(models.Model):
                     check_out_local = g.get('check_out').replace(tzinfo=pytz.UTC).astimezone(
                         user_tz) if g.get('check_out') else None
                     last_check_out_float = ((check_out_local.hour * 60) + check_out_local.minute) / 60
-
-                    # Get the default hour_to from working schedule
+                    next_attendance = self.env['hr.attendance'].search_read([
+                        ('id', 'in', rec.attendance_ids.ids),
+                        ('check_in', '>=', g.get('check_out')),
+                        ('check_in', '<=', fields.Datetime.to_datetime(g.get('check_out')) + timedelta(minutes=30)),
+                        ('in_mode', '!=', 'technical'),
+                    ],['check_in'], limit=1)
+                    if next_attendance:
+                        continue
+                        # Get the default hour_to from working schedule
                     if rec.contract_id.resource_calendar_id.is_day_shift_intersected:
                         hour_to = min(rec.contract_id.resource_calendar_id.attendance_ids.filtered(
                             lambda r: r.dayofweek == str(check_out_local.date().weekday())).mapped('hour_to') or [20])
@@ -143,8 +150,8 @@ class HrPayslip(models.Model):
                                     approved_early_leave_hours += (time_off_end_float - time_off_start_float)
                     # Adjust hour_to based on approved custom hours
                     adjusted_hour_to = hour_to - approved_early_leave_hours - rec.contract_id.resource_calendar_id.tolerance_deducted_early_leave_minutes / 60
-                    print("approved_early_leave_hours", approved_early_leave_hours)
-                    print("adjusted_hour_to", adjusted_hour_to)
+                    # print("approved_early_leave_hours", approved_early_leave_hours)
+                    # print("adjusted_hour_to", adjusted_hour_to)
                     # print("")
                     # Calculate early leave with adjusted hour_to
                     if last_check_out_float < adjusted_hour_to:
@@ -152,7 +159,10 @@ class HrPayslip(models.Model):
                         # print("last_check_out_float", last_check_out_float)
                         number_of_hours_early_leave = (adjusted_hour_to - last_check_out_float)
                         early_leave_deducted += number_of_hours_early_leave
-                        # print("number_of_minutes_early", early_leave_deducted)
+                        print("grouped attendance", g)
+                        print("number_of_minutes_early", early_leave_deducted)
+
+
                 rec.early_leave_hours = early_leave_deducted
                 rec.early_leave_amount = rec.early_leave_hours * rec.contract_id.hourly_rate
                 rec.actual_early_leave_amount = rec.early_leave_amount
@@ -166,7 +176,7 @@ class HrPayslip(models.Model):
         for rec in self:
             if rec.attendance_ids:
                 overtime_hours = sum(rec.attendance_ids.filtered(lambda o: o.overtime_hours>0).mapped('overtime_hours'))
-                print("overtime_hours:", overtime_hours)
+                # print("overtime_hours:", overtime_hours)
                 rec.overtime_hours = overtime_hours
             else:
                 rec.overtime_hours = 0
@@ -177,7 +187,7 @@ class HrPayslip(models.Model):
     def _compute_public_holidays(self):
         for rec in self:
             number_of_public_holidays = rec.attendance_ids.filtered(lambda r: r.is_public_holiday)
-            print("Number of Public Holidays:", len(number_of_public_holidays))
+            # print("Number of Public Holidays:", len(number_of_public_holidays))
             if len(number_of_public_holidays) > 0:
                 rec.number_of_public_holidays = len(number_of_public_holidays)
                 rec.total_bonus_public_holiday = rec.number_of_public_holidays * rec.employee_id.contract_id.bonus_public_holiday
@@ -311,11 +321,11 @@ class HrPayslip(models.Model):
                     total_lateness_hours = sum(rec.attendance_ids.filtered(lambda o: o.lateness_deducted_hours>0).mapped('lateness_deducted_hours'))
                     # print("total_lateness_hours:", total_lateness_hours)
                     hours_worked = rec.contract_id.resource_calendar_id.hours_per_day
-                    print("hours_worked:", hours_worked)
+                    # print("hours_worked:", hours_worked)
                     lateness_days = total_lateness_hours / hours_worked
                     # Round to nearest quarter day
                     lateness_days_rounded = lateness_days
-                    print("lateness_days_rounded:", lateness_days_rounded)
+                    # print("lateness_days_rounded:", lateness_days_rounded)
                     rec.deducted_lateness_days = lateness_days_rounded
             else:
                 rec.deducted_lateness_days = 0
