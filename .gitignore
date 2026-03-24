@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+.models/__pycache__/
+.wizards/__pycache__/
+.reports/__pycache__/
+

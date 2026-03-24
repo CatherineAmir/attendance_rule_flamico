@@ -159,8 +159,8 @@ class HrPayslip(models.Model):
                         # print("last_check_out_float", last_check_out_float)
                         number_of_hours_early_leave = (adjusted_hour_to - last_check_out_float)
                         early_leave_deducted += number_of_hours_early_leave
-                        print("grouped attendance", g)
-                        print("number_of_minutes_early", early_leave_deducted)
+                        # print("grouped attendance", g)
+                        # print("number_of_minutes_early", early_leave_deducted)
 
 
                 rec.early_leave_hours = early_leave_deducted

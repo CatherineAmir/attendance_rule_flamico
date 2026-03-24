@@ -8,6 +8,9 @@
             <field name="inherit_id" ref="hr_attendance.hr_attendance_view_form"/>
             <field name="priority" eval="8"/>
             <field name="arch" type="xml">
+                <xpath expr="//field[@name='employee_id']" position="attributes">
+                    <attribute name="options">{'no_create': True}</attribute>
+                </xpath>
                 <xpath expr="//header" position="inside">
                     <button type="object" string="calc" name="calculate_test_button"/>
                 </xpath>
