@@ -5,6 +5,8 @@ from collections import defaultdict
 from datetime import datetime, time, timedelta
 from odoo.osv import expression
 import pytz
+
+from babel.dates import format_date
 class HrPayslip(models.Model):
     _inherit = 'hr.payslip'
 
@@ -34,8 +36,6 @@ class HrPayslip(models.Model):
 
 
     parent_department = fields.Many2one(related='department_id.parent_id', string='Parent Department', store=True)
-
-
 
     def compute_sheet(self):
         self._get_attendance_by_payslip()
@@ -90,7 +90,8 @@ class HrPayslip(models.Model):
                 early_leave_deducted = 0
 
                 for g in days_attendance_grouped:
-                    # print("worked_hours", g.get('worked_hours'))
+                    print("days_attendance_grouped", g)
+                    print("worked_hours", g.get('worked_hours'))
                     check_in_local = g.get('check_in').replace(tzinfo=pytz.UTC).astimezone(user_tz) if g.get(
                         'check_in') else None
                     check_out_local = g.get('check_out').replace(tzinfo=pytz.UTC).astimezone(
@@ -111,7 +112,8 @@ class HrPayslip(models.Model):
                     else:
                         hour_to = max(rec.contract_id.resource_calendar_id.attendance_ids.filtered(
                             lambda r: r.dayofweek == str(check_in_local.date().weekday())).mapped('hour_to') or [20])
-                    # print("hour_to (original)", hour_to)
+
+                    print("hour_to (original)", hour_to)
 
                     # Check for custom hour time off on this date
                     # Adjust this query based on your time off model structure
@@ -155,10 +157,11 @@ class HrPayslip(models.Model):
                     # print("")
                     # Calculate early leave with adjusted hour_to
                     if last_check_out_float < adjusted_hour_to:
-                        # print("adjusted_hour_to",adjusted_hour_to)
-                        # print("last_check_out_float", last_check_out_float)
+                        print("adjusted_hour_to",adjusted_hour_to)
+                        print("last_check_out_float", last_check_out_float)
                         number_of_hours_early_leave = (adjusted_hour_to - last_check_out_float)
                         early_leave_deducted += number_of_hours_early_leave
+                        print("early_leave_deducted",early_leave_deducted)
                         # print("grouped attendance", g)
                         # print("number_of_minutes_early", early_leave_deducted)
 

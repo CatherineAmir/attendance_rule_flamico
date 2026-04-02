@@ -28,7 +28,6 @@ class AttendanceMachineIntegration(http.Controller):
             raise UserError('No attendance data found in the request payload.')
 
         self.create_attendance_log(payload['attendance'])
-        _logger.info('logggggggggggggggggggggggggggggggggggggggggggggggggg created %s', payload['attendance'])
         for attendance in payload['attendance']:
             request.cr.commit()
             request.cr.savepoint()
@@ -36,11 +35,12 @@ class AttendanceMachineIntegration(http.Controller):
                 [('attendance_machine_id', '=', attendance['user_id'])], limit=1)
             # print("employee_id",employee_id)
             if employee_id:
+                _logger.info("attendance %s for employee %s", attendance, employee_id.name)
                 naive_dt = datetime.strptime(attendance['timestamp'], '%Y-%m-%dT%H:%M:%S')
                 localized_dt = local_tz.localize(naive_dt)
                 attendance_utc_dt = datetime.strptime(localized_dt.astimezone(utc).strftime('%Y-%m-%d %H:%M:%S'),
                                                       '%Y-%m-%d %H:%M:%S')
-
+                _logger.info("main datatime %s",attendance_utc_dt)
                 all_employee_attendance = request.env['hr.attendance'].sudo().search(
                     [('employee_id', '=', employee_id.id)], order='check_in desc')
 
@@ -58,16 +58,28 @@ class AttendanceMachineIntegration(http.Controller):
                     #             emp.check_in == attendance_utc_dt or (emp.check_in >= attendance_utc_dt - timedelta(
                     #         seconds=60 ))))
                     # and emp.check_out <= attendance_utc_dt if emp.check_out else True
-                    _logger.info("attendance_employee found")
+                    _logger.info("attendance_employee found %s",attendance_employee)
                     if len(attendance_employee):
+                        log_record = request.env['hr.attendance.log'].sudo().search(
+                            [('employee_id', '=', employee_id.id), ('time_stamp', '=', attendance['timestamp']),
+                             ('punch', '=', "0")],limit=1)
+                        if len(log_record):
+                            if log_record.error_exist:
+                                log_record.write({
+                                    'error_exist': False,
+                                    'error_message': 'fixed',
+                                })
                         pass  # do nothing
+
                         _logger.info("attendance_utc_dt  %s already exist for employee %s records is %s",
                                      attendance_utc_dt,
                                      employee_id.name, attendance_employee)
                     else:
                         _logger.info("will Create , write check in")
                         attendance_no_checkout = all_employee_attendance.filtered(lambda emp: not emp.check_out)
+
                         if len(attendance_no_checkout):
+                            _logger.info("records no check out %s",attendance_no_checkout.check_in)
                             # todo discussed
                             time_stamps = attendance_no_checkout.mapped('check_in')
 
@@ -88,7 +100,7 @@ class AttendanceMachineIntegration(http.Controller):
                                  ('punch', '=', "0")])
                             log_records.write({
                                 'error_exist': True,
-                                'error_message': "Check in not followed by check out"
+                                'error_message': "Check in not followed by check out  case of 2 check ins no checkout"
 
                             })
 
@@ -99,6 +111,7 @@ class AttendanceMachineIntegration(http.Controller):
                                     'employee_id': employee_id.id,
                                     'check_in': attendance_utc_dt,
                                 })
+
                             except ValidationError as e:
                                 _logger.info("Skipped create attendance of employee %s  on %s due to : %s  ",
                                              employee_id.name, attendance_utc_dt, e)
@@ -110,10 +123,15 @@ class AttendanceMachineIntegration(http.Controller):
                     attendance_employee = all_employee_attendance.filtered(lambda
                                                                                emp: emp.check_out and (
                             emp.check_out == attendance_utc_dt or (emp.check_out >= attendance_utc_dt - timedelta(
-                        seconds=60))))
+                        seconds=60 ) and (emp.check_out <= attendance_utc_dt + timedelta(seconds=60)))))
+
+                    # and attendance_utc_dt - timedelta(
+                    #     seconds=60) <= emp.check_in <= attendance_utc_dt + timedelta(
+                        # seconds=60))
 
                     _logger.info("Check Out %s,%s", employee_id.name, attendance_utc_dt)
                     if len(attendance_employee):
+
                         # attendance_employee_2 = attendance_employee.filtered(
                         #     lambda emp: emp.check_in >= attendance_employee[-1].check_out and not emp.check_out)
                         #
@@ -129,7 +147,15 @@ class AttendanceMachineIntegration(http.Controller):
                         # else:
 
                             # pass
-
+                        log_record = request.env['hr.attendance.log'].sudo().search(
+                            [('employee_id', '=', employee_id.id), ('time_stamp', '=', attendance['timestamp']),
+                             ('punch', '=', "1")], limit=1)
+                        if len(log_record):
+                            if log_record.error_exist:
+                                log_record.write({
+                                    'error_exist': False,
+                                    'error_message': 'fixed',
+                                })
                         _logger.info("already Exist")
                         pass
 
@@ -150,7 +176,7 @@ class AttendanceMachineIntegration(http.Controller):
                                      ('punch', '=', "1")])
                                 log_record.write({
                                     'error_exist': True,
-                                    'error_message': " Check in not followed by check out"
+                                    'error_message': " Check in not followed by check out Case 1"
 
                                 })
                                 _logger.info("Multiple CheckIns without check out %s For  %s", employee_id.name,
@@ -165,7 +191,7 @@ class AttendanceMachineIntegration(http.Controller):
                                      ('punch', '=', "1")])
                                 log_record.write({
                                     'error_exist': True,
-                                    'error_message': " Check in not followed by check out"
+                                    'error_message': " Check in not followed by check out Case 2"
 
                                 })
                                 _logger.info("Multiple CheckIns without check out %s For  %s", employee_id.name,
@@ -178,13 +204,13 @@ class AttendanceMachineIntegration(http.Controller):
                                      ('punch', '=', "1")])
                                 log_record.write({
                                     'error_exist': True,
-                                    'error_message': " Check in not followed by check out"
+                                    'error_message': " Check in not followed by check out Case 3"
 
                                 })
                                 _logger.info("Multiple CheckIns without check out %s For  %s", employee_id.name,
                                              attendance_utc_dt)
                         elif len(attendance_no_checkout) == 1:
-
+                            #     correct write
                             _logger.info("Normal write %s", attendance_no_checkout.employee_id.name)
                             _logger.info("Normal write check in  %s", attendance_no_checkout.check_in)
                             _logger.info("Normal write check out %s", attendance_utc_dt)
@@ -195,12 +221,32 @@ class AttendanceMachineIntegration(http.Controller):
                                          attendance_utc_dt - timedelta(hours=18))
                             _logger.info(" attendance_no_checkout.check_in %s", attendance_no_checkout.check_in)
                             if attendance_no_checkout.check_in <= attendance_utc_dt and (
-                                    attendance_utc_dt - timedelta(hours=18)) <= attendance_no_checkout.check_in:
-                                attendance_no_checkout.write({
+                                    attendance_utc_dt - timedelta(hours=72)) <= attendance_no_checkout.check_in:
+                                attendance_no_checkout.sudo().write({
                                     "check_out": attendance_utc_dt
                                 })
+                                check_in_log=request.env['hr.attendance.log'].sudo().search([("punch", "=", "0"), ("employee_id", "=", employee_id.id), ("time_stamp", "=", attendance_no_checkout.check_in)], limit=1)
+                                check_out_log=request.env['hr.attendance.log'].sudo().search([("punch", "=", "1"), ("employee_id", "=", employee_id.id), ("time_stamp", "=", attendance_utc_dt)], limit=1)
+                                if check_in_log and check_in_log.error_exist:
+                                    _logger.info("check in log has been fixed")
+                                    check_in_log.write({
+                                        "error_exist": False,
+                                        "error_message":"solved",
+                                    })
+                                else:
+                                    _logger.info("check out log has been fixed")
+                                    check_out_log.write({
+                                        "error_exist": False,
+                                        "error_message": "solved",
+                                    })
                             else:
+                                # _logger.warning("will unlink %s", attendance_utc_dt)
+                                # _logger.warning("will unlink no  check out %s", attendance_no_checkout.read())
                                 attendance_no_checkout.sudo().unlink()
+                                # attendance_no_checkout.sudo().write({
+                                #     "check_out": attendance_utc_dt
+                                # })
+                                _logger.warning("unlink check in %s", attendance_utc_dt)
 
 
                         else:

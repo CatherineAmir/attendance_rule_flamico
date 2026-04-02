@@ -267,8 +267,10 @@ class HrAttendance(models.Model):
 
     def calculate_test_button(self):
         self._calculate_lateness_deducted()
+        self._compute_lateness_deducted_hours()
         self._is_public_holiday()
         self._compute_color()
+        self._calculate_first_attendance()
         # self._is_time_off_approved()
         # self.detect_is_timeoff()
         # self.detect_absence_state()
