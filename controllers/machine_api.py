@@ -51,8 +51,8 @@ class AttendanceMachineIntegration(http.Controller):
                     attendance_employee = all_employee_attendance.filtered(lambda emp: emp.check_in
 
                                                                                        and attendance_utc_dt - timedelta(
-                        seconds=60) <= emp.check_in <= attendance_utc_dt + timedelta(
-                        seconds=60))
+                        seconds=600) <= emp.check_in <= attendance_utc_dt + timedelta(
+                        seconds=600))
 
                     # attendance_employee = all_employee_attendance.filtered(lambda emp: emp.check_in and (
                     #             emp.check_in == attendance_utc_dt or (emp.check_in >= attendance_utc_dt - timedelta(

@@ -32,6 +32,47 @@ class HrAttendance(models.Model):
                                        store=True)
 
     parent_department = fields.Many2one(related='department_id.parent_id', string='Parent Department', store=True)
+
+    from odoo import fields
+    #
+    # @api.onchange('check_in', 'employee_id')
+    # def _dates_from_log(self):
+    #     for rec in self:
+    #         if rec.check_in and rec.employee_id:
+    #             check_in_date = rec.check_in.date()
+    #
+    #             log_dates = self.env['hr.attendance.log'].search_read(
+    #                 [
+    #                     ('employee_id', '=', rec.employee_id.id),
+    #                     ('attendance_date', '=', check_in_date),
+    #                     ('punch', '=', '0')
+    #                 ],
+    #                 fields=['time_stamp']
+    #             )
+    #
+    #             localized_logs = []
+    #             for ld in log_dates:
+    #                 if ld.get('time_stamp'):
+    #                     utc_dt = fields.Datetime.from_string(ld['time_stamp'])
+    #                     local_dt = fields.Datetime.context_timestamp(rec, utc_dt)
+    #                     localized_logs.append(local_dt)
+    #
+    #             if localized_logs:
+    #                 if rec.check_in in localized_logs:
+    #                     continue
+    #                 else:
+    #                     return {
+    #                         'warning': {
+    #                             'title': _("Warning"),
+    #                             'message': _(
+    #                                 "Check-in time does not match any log entry.\nLog times: %s"
+    #                             ) % ", ".join(str(log) for log in localized_logs)
+    #                         }
+    #                     }
+
+
+
+
     @api.depends('check_in', 'first_attendance', 'employee_id')
     def _compute_lateness_deducted_hours(self):
         for rec in self:
@@ -155,7 +196,11 @@ class HrAttendance(models.Model):
                 else:
                     rec.is_public_holiday = False
 
-    def detect_absence_state(self, technical_attendances):
+
+
+    def detect_absence_state(self, technical_attendances=None):
+        if not technical_attendances:
+            technical_attendances = self
         for rec in technical_attendances:
             if rec.in_mode == 'technical':
                 if rec.employee_id.contract_id.absence == 'no':
@@ -208,11 +253,13 @@ class HrAttendance(models.Model):
                             [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id),
                              ('check_in', '>=', year_month_start),
                              ('check_in', '<=', year_month_end),
+                             ('check_in','<',rec.check_in),
                              ('in_mode', '=', 'technical'),
                              ('is_leave', '=', False),
-                             ],['in_mode','absence'], order='check_in desc',limit=1)
+                             ],['in_mode','absence','check_in'], order='check_in desc',limit=1)
 
-
+                        print("rec.day",rec.check_in)
+                        print("last_day_absence_status",last_day_absence_status)
                         if len(prev_day_attendance) > 0:
                             if prev_day_attendance[0].in_mode == 'technical' and prev_day_attendance[0].is_leave:
                                 prev_day_two = prev_day - relativedelta(days=1)
@@ -225,13 +272,16 @@ class HrAttendance(models.Model):
                                 if len(prev_day_two_attendance) > 0 and prev_day_two_attendance[0]['in_mode'] == 'technical' and prev_day_two_attendance[0]['absence']in ['day_by_day_half', 'day_day']:
                                     prev_day_attendance[0].write({'absence': 'day_day'})
                                     rec.absence = 'day_by_day_half'
+                                    print("in `1")
                                 else:
+                                    print("in `2")
                                     if len(last_day_absence_status) > 0 and last_day_absence_status[0]['in_mode'] == 'technical' and last_day_absence_status[0]['absence'] in ['day_by_day_half', 'day_day']:
                                         rec.absence = 'day_by_day_half'
                                     else:
                                         rec.absence = 'day_day'
                             elif len(last_day_absence_status) > 0 and last_day_absence_status[0]['in_mode'] == 'technical' and last_day_absence_status[0]['absence'] in ['day_by_day_half', 'day_day']:
                                 rec.absence = 'day_by_day_half'
+                                print("in 3")
                             else:
                                 rec.absence = 'day_day'
                         # elif len(last_day_absence_status) > 0 and last_day_absence_status[0].in_mode == 'technical' and last_day_absence_status[0].absence in ['day_by_day_half', 'day_day']:
@@ -273,7 +323,7 @@ class HrAttendance(models.Model):
         self._calculate_first_attendance()
         # self._is_time_off_approved()
         # self.detect_is_timeoff()
-        # self.detect_absence_state()
+        self.detect_absence_state()
 
     def add_float_hours_to_time(self, base_hours, float_hours):
         total_float_hours = base_hours + float_hours
