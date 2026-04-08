@@ -77,11 +77,11 @@ class AttendanceMachineIntegration(http.Controller):
                     else:
                         _logger.info("will Create , write check in")
                         attendance_no_checkout = all_employee_attendance.filtered(lambda emp: not emp.check_out)
-
+                        time_stamps = attendance_no_checkout.mapped('check_in')
                         if len(attendance_no_checkout):
                             _logger.info("records no check out %s",attendance_no_checkout.check_in)
                             # todo discussed
-                            time_stamps = attendance_no_checkout.mapped('check_in')
+
 
                             _logger.info("Force Write Check In")
                             attendance_no_checkout.write(
@@ -107,16 +107,24 @@ class AttendanceMachineIntegration(http.Controller):
                         else:
                             _logger.info("Normal Create check in")
                             try:
-                                request.env['hr.attendance'].sudo().create({
-                                    'employee_id': employee_id.id,
-                                    'check_in': attendance_utc_dt,
-                                })
+                                with self.env.cr.savepoint():
+                                    request.env['hr.attendance'].sudo().create({
+                                        'employee_id': employee_id.id,
+                                        'check_in': attendance_utc_dt,
+                                    })
 
                             except ValidationError as e:
-                                _logger.info("Skipped create attendance of employee %s  on %s due to : %s  ",
-                                             employee_id.name, attendance_utc_dt, e)
-
-                                _logger.error(e)
+                                with self.env.cr.savepoint():
+                                    _logger.info("Skipped create attendance of employee %s  on %s due to : %s  ",
+                                                 employee_id.name, attendance_utc_dt, e)
+                                    log_records = request.env['hr.attendance.log'].sudo().search(
+                                        [('employee_id', '=', employee_id.id), ('time_stamp', 'in', time_stamps),
+                                         ('punch', '=', "0")])
+                                    log_records.write({
+                                        'error_exist': True,
+                                        'error_message': "Validation Error on Check in creation " + str(e)
+                                    })
+                                    _logger.error(e)
 
 
                 elif state == "1":  # out
