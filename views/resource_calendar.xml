@@ -29,9 +29,26 @@
                         <field name="tolerance_deducted_early_leave_minutes" style="width: 10%"/>
                         <span>Minutes</span>
                     </div>
+
+                    <xpath expr="//field[@name='hours_per_day']" position="attributes">
+                        <attribute name="readonly">0</attribute>
+                    </xpath>
                 </xpath>
                 <xpath expr="//field[@name='tz']" position="after">
                     <field name="is_day_shift_intersected" widget="boolean_toggle"/>
+                </xpath>
+            </field>
+        </record>
+
+        <record id="resource_calendar_list_inherit" model="ir.ui.view">
+            <field name="name">resource.calendar.form.inherit</field>
+            <field name="model">resource.calendar</field>
+            <field name="inherit_id" ref="hr_contract.resource_calendar_view_tree"/>
+            <field name="priority" eval="8"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='full_time_required_hours']" position="after">
+                 <field name="is_day_shift_intersected"/>
+                    <field name="hours_per_day"/>
                 </xpath>
             </field>
         </record>
