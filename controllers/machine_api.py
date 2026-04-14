@@ -107,14 +107,14 @@ class AttendanceMachineIntegration(http.Controller):
                         else:
                             _logger.info("Normal Create check in")
                             try:
-                                with self.env.cr.savepoint():
+                                with request.env.cr.savepoint():
                                     request.env['hr.attendance'].sudo().create({
                                         'employee_id': employee_id.id,
                                         'check_in': attendance_utc_dt,
                                     })
 
                             except ValidationError as e:
-                                with self.env.cr.savepoint():
+                                with request.env.cr.savepoint():
                                     _logger.info("Skipped create attendance of employee %s  on %s due to : %s  ",
                                                  employee_id.name, attendance_utc_dt, e)
                                     log_records = request.env['hr.attendance.log'].sudo().search(
