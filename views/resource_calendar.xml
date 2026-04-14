@@ -37,6 +37,19 @@
                 <xpath expr="//field[@name='tz']" position="after">
                     <field name="is_day_shift_intersected" widget="boolean_toggle"/>
                 </xpath>
+                <xpath expr="//page[@name='working_hours']" position="after">
+                    <page name="flexible_hours_holidays" string="Flexible Hours Holidays" invisible="not flexible_hours">
+                        <group string="Holidays" invisible="not flexible_hours">
+                            <field name="day_monday" widget="boolean_toggle"/>
+                            <field name="day_tuesday" widget="boolean_toggle"/>
+                            <field name="day_wednesday" widget="boolean_toggle"/>
+                            <field name="day_thursday" widget="boolean_toggle"/>
+                            <field name="day_friday" widget="boolean_toggle"/>
+                            <field name="day_saturday" widget="boolean_toggle"/>
+                            <field name="day_sunday" widget="boolean_toggle"/>
+                        </group>
+                    </page>
+                </xpath>
             </field>
         </record>
 
@@ -47,7 +60,7 @@
             <field name="priority" eval="8"/>
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='full_time_required_hours']" position="after">
-                 <field name="is_day_shift_intersected"/>
+                    <field name="is_day_shift_intersected"/>
                     <field name="hours_per_day"/>
                 </xpath>
             </field>

@@ -90,8 +90,8 @@ class HrPayslip(models.Model):
                 early_leave_deducted = 0
 
                 for g in days_attendance_grouped:
-                    print("days_attendance_grouped", g)
-                    print("worked_hours", g.get('worked_hours'))
+                    # print("days_attendance_grouped", g)
+                    # print("worked_hours", g.get('worked_hours'))
                     check_in_local = g.get('check_in').replace(tzinfo=pytz.UTC).astimezone(user_tz) if g.get(
                         'check_in') else None
                     check_out_local = g.get('check_out').replace(tzinfo=pytz.UTC).astimezone(
@@ -110,10 +110,13 @@ class HrPayslip(models.Model):
                         hour_to = min(rec.contract_id.resource_calendar_id.attendance_ids.filtered(
                             lambda r: r.dayofweek == str(check_out_local.date().weekday())).mapped('hour_to') or [20])
                     else:
+                        if check_out_local.date() > check_in_local.date():
+                            print("check_out_local", check_in_local,check_out_local)
+                            continue
                         hour_to = max(rec.contract_id.resource_calendar_id.attendance_ids.filtered(
                             lambda r: r.dayofweek == str(check_in_local.date().weekday())).mapped('hour_to') or [20])
 
-                    print("hour_to (original)", hour_to)
+                    # print("hour_to (original)", hour_to)
 
                     # Check for custom hour time off on this date
                     # Adjust this query based on your time off model structure
@@ -140,7 +143,9 @@ class HrPayslip(models.Model):
                             if time_off.request_unit_hours and time_off.request_date_from == check_in_local.date():
                                 time_off_start_float = float(time_off.request_hour_from)
                                 time_off_end_float = float(time_off.request_hour_to)
-                                if time_off_start_float >= last_check_out_float and time_off_end_float <= hour_to:
+
+                                if (time_off_start_float >= last_check_out_float and time_off_end_float <= hour_to) or (last_check_out_float >= time_off_start_float and last_check_out_float <= time_off_end_float):
+                                    print("time_off.request_date_from", time_off.request_date_from)
                                     approved_early_leave_hours += (time_off_end_float - time_off_start_float)
                             elif time_off.request_unit_half and time_off.request_date_from == check_in_local.date():
                                 date_from_tz = pytz.UTC.localize(time_off.date_from).astimezone(user_tz)
@@ -150,13 +155,13 @@ class HrPayslip(models.Model):
                                 if round(time_off_start_float, 1) >= round(last_check_out_float, 1) and round(
                                         last_check_out_float, 1) <= hour_to:
                                     approved_early_leave_hours += (time_off_end_float - time_off_start_float)
-                    # Adjust hour_to based on approved custom hours
                     adjusted_hour_to = hour_to - approved_early_leave_hours - rec.contract_id.resource_calendar_id.tolerance_deducted_early_leave_minutes / 60
                     # print("approved_early_leave_hours", approved_early_leave_hours)
                     # print("adjusted_hour_to", adjusted_hour_to)
                     # print("")
                     # Calculate early leave with adjusted hour_to
                     if last_check_out_float < adjusted_hour_to:
+                        print("check_out_local", check_in_local,check_out_local)
                         print("adjusted_hour_to",adjusted_hour_to)
                         print("last_check_out_float", last_check_out_float)
                         number_of_hours_early_leave = (adjusted_hour_to - last_check_out_float)

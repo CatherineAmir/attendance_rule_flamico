@@ -294,17 +294,31 @@ class HrAttendance(models.Model):
                 else:
                     rec.absence = 'no'
 
-    def detect_is_timeoff(self, technical_attendances):
+    def detect_is_timeoff(self, technical_attendances=None):
+        if  not technical_attendances:
+            technical_attendances = self
         for rec in technical_attendances:
             if rec.in_mode == 'technical':
                 check_in_date = rec.check_in.date().weekday()
+                print("check_in_date",check_in_date)
                 # check if the day is paid time off from working scheduale
-                day_off = rec.employee_id.contract_id.resource_calendar_id.attendance_ids.filtered(
-                    lambda d: d.dayofweek == str(check_in_date) and d.work_entry_type_id.is_leave)
+                # print("rec.employee_id.contract_id.resource_calendar_id.flexible_hours",rec.employee_id.contract_id.resource_calendar_id.flexible_hours)
+                if rec.employee_id.contract_id.resource_calendar_id.flexible_hours:
+                    flexible_holidays = rec.employee_id.contract_id.resource_calendar_id.selected_days
+                    if check_in_date in flexible_holidays:
+                        day_off = True
+                    else:
+                        print("in false")
+                        day_off = False
+                else:
+                    day_off = True if rec.employee_id.contract_id.resource_calendar_id.attendance_ids.filtered(
+                        lambda d: d.dayofweek == str(check_in_date) and d.work_entry_type_id.is_leave) else False
                 ################### time off criteria ######################
                 ###########################################################
-                if len(day_off):
+                if day_off:
                     rec.is_leave = True
+                else:
+                    rec.is_leave = False
 
 
     def _compute_color(self):
@@ -322,7 +336,7 @@ class HrAttendance(models.Model):
         self._compute_color()
         self._calculate_first_attendance()
         # self._is_time_off_approved()
-        # self.detect_is_timeoff()
+        self.detect_is_timeoff()
         self.detect_absence_state()
 
     def add_float_hours_to_time(self, base_hours, float_hours):
@@ -527,21 +541,28 @@ class HrAttendance(models.Model):
             ])
 
             for emp in absent_employees:
+                if not emp.contract_id.work_with_attendance:
+                    continue
                 schedule_id = emp.contract_id.resource_calendar_id
-                work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
-                work_to = list(sorted(set(schedule_id.attendance_ids.mapped('hour_to'))))
-                if len(work_from):
-                    # print("work_from", work_from)
-                    start_hour = int(
-                        max(work_from) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_from[
-                            0]) +1
-                    print("start_hour", start_hour)
-                    end_hour=int(
-                        max(work_to) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_to[
-                            0]) -1
+
+                if schedule_id.flexible_hours:
+                    start_hour = 23.9
+                    end_hour = 23.91
                 else:
-                    start_hour = 9
-                    end_hour = 9
+                    work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
+                    work_to = list(sorted(set(schedule_id.attendance_ids.mapped('hour_to'))))
+                    if len(work_from):
+                        # print("work_from", work_from)
+                        start_hour = int(
+                            max(work_from) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_from[
+                                0]) +1
+                        print("start_hour", start_hour)
+                        end_hour=int(
+                            max(work_to) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_to[
+                                0]) -1
+                    else:
+                        start_hour = 9
+                        end_hour = 9
 
                 # local_day_start = local_tz.localize(day) + relativedelta(
                 #     hours=start_hour)
