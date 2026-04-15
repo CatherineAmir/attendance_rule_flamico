@@ -20,20 +20,23 @@
             <field name="inherit_id" ref="hr_payroll.view_hr_payslip_form"/>
             <field name="priority" eval="8"/>
             <field name="arch" type="xml">
+                <xpath expr="//field[@name='struct_id']" position="after">
+                    <field name="is_flexible_hours" invisible="1"/>
+                </xpath>
                 <xpath expr="//page[@name='salary_computation']" position="after">
-                    <page name="attendance_rule" string="Attendance Rule">
+                    <page name="attendance_rule" string="Attendance Rule" invisible="is_flexible_hours">
                         <group>
                             <group string="Lateness Deductions">
 
                                 <field name="deducted_lateness_days" readonly="1"/>
                                 <field name="deducted_lateness_amount" readonly="1"/>
-<!--                                <field name="actual_deducted_lateness_amount"/>-->
+                                <!--                                <field name="actual_deducted_lateness_amount"/>-->
                             </group>
                             <group string="Absence Deductions">
                                 <field name="edit_manually" widget="boolean_toggle"/>
-                                <field name="deducted_absence_days" readonly="not edit_manually" />
+                                <field name="deducted_absence_days" readonly="not edit_manually"/>
                                 <field name="deducted_absence_amount" readonly="1"/>
-<!--                                <field name="actual_deducted_absence_amount" readonly="1"/>-->
+                                <!--                                <field name="actual_deducted_absence_amount" readonly="1"/>-->
                             </group>
                         </group>
                         <group>
@@ -51,9 +54,33 @@
                             <group string="Early Leaving Deductions">
                                 <field name="early_leave_hours" readonly="1"/>
                                 <field name="early_leave_amount" readonly="1"/>
-<!--                                <field name="actual_early_leave_amount"/>-->
+                                <!--                                <field name="actual_early_leave_amount"/>-->
                             </group>
                         </group>
+                    </page>
+                    <page name="flexible_hours" string="Attendance Rules Flexible Hours"
+                          invisible="not is_flexible_hours">
+                        <group string="Flexible Hours Rules">
+                            <label for="flexible_hours_deducted_hours"/>
+                            <div class="o_row mw-20" name="flexible_hours_deducted_hours">
+                                <field name="flexible_hours_deducted_hours" class="oe_inline o_hr_narrow_field" nolabel="1" readonly="1"  widget="float_time"/>
+                                <div class="mb-3" name="wage_period_label">Hours : Minutes</div>
+                            </div>
+                            <label for="flexible_hours_overtime_hours"/>
+                            <div class="o_row mw-20" name="flexible_hours_overtime_hours">
+                                <field name="flexible_hours_overtime_hours" class="oe_inline o_hr_narrow_field" nolabel="1" readonly="1" widget="float_time"/>
+                                <div class="mb-3" name="wage_period_label">Hours : Minutes</div>
+                            </div>
+<!--                            <field name="flexible_hours_deducted_hours" readonly="1"/>-->
+<!--                            <field name="flexible_hours_overtime_hours" readonly="1"/>-->
+                            <label for="flexible_hours_deducted_days"/>
+                            <div class="o_row mw-20" name="flexible_hours_deducted_days">
+                                <field name="flexible_hours_deducted_days" class="oe_inline o_hr_narrow_field" nolabel="1" readonly="1"/>
+                                <div class="mb-3" name="wage_period_label">Days</div>
+                            </div>
+<!--                            <field name="flexible_hours_deducted_days" readonly="1"/>-->
+                        </group>
+
                     </page>
                 </xpath>
             </field>

@@ -36,6 +36,54 @@ class HrPayslip(models.Model):
 
 
     parent_department = fields.Many2one(related='department_id.parent_id', string='Parent Department', store=True)
+    flexible_hours_deducted_hours = fields.Float(string='Deducted Hours for Flexible Schedule',
+                                                 compute='_compute_hours_flexible_hours', store=True,tracking=True)
+    flexible_hours_overtime_hours = fields.Float(string='Overtime Hours for Flexible Schedule',
+                                                 compute='_compute_hours_flexible_hours', store=True,tracking=True)
+    flexible_hours_deducted_days = fields.Float(string='Deducted Days for Flexible Schedule',store=True,tracking=True,compute='_compute_hours_flexible_hours')
+    is_flexible_hours = fields.Boolean(string='Is Flexible Hours', default=False, tracking=True,
+                                       compute='_compute_is_flexible_hours')
+
+    @api.depends('contract_id', 'employee_id')
+    def _compute_is_flexible_hours(self):
+        for rec in self:
+            if rec.contract_id.resource_calendar_id.flexible_hours:
+                rec.is_flexible_hours = True
+            else:
+                rec.is_flexible_hours = False
+
+    @api.depends('employee_id','contract_id','attendance_ids','contract_id.resource_calendar_id','is_flexible_hours')
+    def _compute_hours_flexible_hours(self):
+        for rec in self:
+            if rec.is_flexible_hours:
+                days_attendance_grouped = self.env['hr.attendance'].read_group(
+                    domain=[('id', 'in', rec.attendance_ids.ids), ('check_out', '!=', False),('in_mode','!=','technical')],
+                    fields=['check_in:min', 'check_out:max', 'worked_hours:sum','validated_overtime_hours:sum'],
+                    groupby=['check_in:day'],
+                    orderby='check_in:day asc',
+                    lazy=False)
+                days_absence_deducted_day_day = len(rec.attendance_ids.filtered(lambda r: r.in_mode == 'technical' and r.absence == 'day_day'))
+                days_absence_deducted_day_by_day_half = len(rec.attendance_ids.filtered(lambda r: r.in_mode == 'technical' and r.absence == 'day_by_day_half')) * 1.5
+                total_deducted_hours = 0
+                total_overtime_hours = 0
+
+                for day in days_attendance_grouped:
+                    if day.get('validated_overtime_hours') < 0 and day.get('in_mode') != 'technical':
+                        total_deducted_hours += abs(day.get('validated_overtime_hours'))
+                    else:
+                        total_overtime_hours += day.get('validated_overtime_hours')
+
+
+                rec.flexible_hours_deducted_hours = total_deducted_hours
+                rec.flexible_hours_overtime_hours = total_overtime_hours
+                rec.flexible_hours_deducted_days = days_absence_deducted_day_day + days_absence_deducted_day_by_day_half
+                # print("total_absence_days",total_absence_days)
+            else:
+                rec.flexible_hours_deducted_hours = 0.0
+                rec.flexible_hours_overtime_hours = 0.0
+                rec.flexible_hours_deducted_days = 0.0
+
+
 
     def compute_sheet(self):
         self._get_attendance_by_payslip()
@@ -73,10 +121,10 @@ class HrPayslip(models.Model):
                 rec.weekly_reward = 0
 
 
-    @api.depends('attendance_ids')
+    @api.depends('attendance_ids','is_flexible_hours')
     def _compute_early_leave_hours(self):
         for rec in self:
-            if rec.attendance_ids and rec.contract_id.apply_early_leaving:
+            if rec.attendance_ids and rec.contract_id.apply_early_leaving and not rec.is_flexible_hours:
                 user_tz = pytz.timezone(self.env.user.tz or 'UTC')
                 # get attendance grouped by day with min check in and max check out
                 days_attendance_grouped = self.env['hr.attendance'].read_group(
@@ -179,10 +227,10 @@ class HrPayslip(models.Model):
                 rec.early_leave_amount = 0
                 rec.actual_early_leave_amount = 0
 
-    @api.depends('attendance_ids')
+    @api.depends('attendance_ids','is_flexible_hours')
     def _compute_overtime_hours(self):
         for rec in self:
-            if rec.attendance_ids:
+            if rec.attendance_ids and not rec.is_flexible_hours:
                 overtime_hours = sum(rec.attendance_ids.filtered(lambda o: o.overtime_hours>0).mapped('overtime_hours'))
                 # print("overtime_hours:", overtime_hours)
                 rec.overtime_hours = overtime_hours
@@ -264,12 +312,12 @@ class HrPayslip(models.Model):
     #                 else:
     #                     attendance.is_leave = False
 
-    @api.depends('attendance_ids','edit_manually')
+    @api.depends('attendance_ids','edit_manually','is_flexible_hours')
     def _compute_absence_days(self):
         for rec in self:
             if rec.edit_manually:
                 continue
-            if rec.attendance_ids:
+            if rec.attendance_ids and not rec.is_flexible_hours:
                 attendance_absence_deducted_day_by_day = self.env['hr.attendance'].search_count(
                     domain=[
                         ('id','in',rec.attendance_ids.ids),
@@ -299,10 +347,10 @@ class HrPayslip(models.Model):
                 rec.deducted_absence_amount = 0
                 rec.actual_deducted_absence_amount = 0
 
-    @api.depends('attendance_ids','lateness_policy')
+    @api.depends('attendance_ids','lateness_policy','is_flexible_hours')
     def _compute_lateness_days(self):
         for rec in self:
-            if rec.attendance_ids:
+            if rec.attendance_ids and not rec.is_flexible_hours:
                 if rec.lateness_policy == 'no':
                     rec.deducted_lateness_days = 0
                     continue

@@ -3,22 +3,23 @@ from odoo import fields, models, api
 
 
 class ResourceCalendar(models.Model):
-    _inherit = 'resource.calendar'
+    _name = 'resource.calendar'
+    _inherit = ['resource.calendar','mail.thread', 'mail.activity.mixin']
 
-    lateness_deducted_hourly_quarter = fields.Float(string='Hourly Lateness Deducted Quarter Day',default=1)
-    lateness_deducted_hourly_half = fields.Float(string='Hourly Lateness Deducted Half Day',default=2)
-    tolerance_deducted_minutes = fields.Integer(string='Tolerance Minutes for Lateness Deduction',default=15)
-    tolerance_deducted_early_leave_minutes = fields.Integer(string='Tolerance Minutes for Early Leave Deduction',default=15)
-    is_day_shift_intersected = fields.Boolean(string='Is Day Shift Intersected',default=False)
+    lateness_deducted_hourly_quarter = fields.Float(string='Hourly Lateness Deducted Quarter Day',default=1,tracking=True)
+    lateness_deducted_hourly_half = fields.Float(string='Hourly Lateness Deducted Half Day',default=2,tracking=True)
+    tolerance_deducted_minutes = fields.Integer(string='Tolerance Minutes for Lateness Deduction',default=15,tracking=True)
+    tolerance_deducted_early_leave_minutes = fields.Integer(string='Tolerance Minutes for Early Leave Deduction',default=15,tracking=True)
+    is_day_shift_intersected = fields.Boolean(string='Is Day Shift Intersected',default=False, tracking=True)
+    day_monday = fields.Boolean(string='Monday',tracking=True)
+    day_tuesday = fields.Boolean(string='Tuesday', tracking=True)
+    day_wednesday = fields.Boolean(string='Wednesday', tracking=True)
+    day_thursday = fields.Boolean(string='Thursday', tracking=True)
+    day_friday = fields.Boolean(string='Friday', tracking=True)
+    day_saturday = fields.Boolean(string='Saturday',   tracking=True)
+    day_sunday = fields.Boolean(string='Sunday', tracking=True)
 
-    # Days of week
-    day_monday = fields.Boolean(string='Monday')
-    day_tuesday = fields.Boolean(string='Tuesday')
-    day_wednesday = fields.Boolean(string='Wednesday')
-    day_thursday = fields.Boolean(string='Thursday')
-    day_friday = fields.Boolean(string='Friday')
-    day_saturday = fields.Boolean(string='Saturday')
-    day_sunday = fields.Boolean(string='Sunday')
+
 
     @property
     def selected_days(self):

@@ -32,7 +32,7 @@ class HrAttendance(models.Model):
                                        store=True)
 
     parent_department = fields.Many2one(related='department_id.parent_id', string='Parent Department', store=True)
-
+    in_mode = fields.Selection(tracking=True)
     from odoo import fields
     #
     # @api.onchange('check_in', 'employee_id')
@@ -76,7 +76,7 @@ class HrAttendance(models.Model):
     @api.depends('check_in', 'first_attendance', 'employee_id')
     def _compute_lateness_deducted_hours(self):
         for rec in self:
-            if rec.first_attendance and rec.employee_id and rec.employee_id.contract_id.work_with_attendance and rec.employee_id.contract_id.lateness_policy == 'apply_lateness_hourly_quarter':
+            if rec.first_attendance and rec.employee_id and rec.employee_id.contract_id.work_with_attendance and rec.employee_id.contract_id.lateness_policy == 'apply_lateness_hourly_quarter' and not rec.employee_id.contract_id.resource_calendar_id.flexible_hours:
                 schedule_id = rec.employee_id.resource_calendar_id
                 if schedule_id.is_day_shift_intersected:
                     work_from = max(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from')))))
@@ -569,6 +569,7 @@ class HrAttendance(models.Model):
                 if emp.contract_id.resource_calendar_id.is_day_shift_intersected:
                     local_day_start = local_tz.localize(day) + relativedelta(
                         hours=start_hour)
+                    print("local_day_start", local_day_start)
                 else:
                     local_day_start = local_tz.localize(day) + relativedelta(
                         hours=end_hour)
