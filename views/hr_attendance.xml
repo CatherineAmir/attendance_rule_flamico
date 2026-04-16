@@ -24,15 +24,15 @@
                     <field name="is_leave" readonly="1"/>
                     <field name="is_public_holiday" readonly="1"/>
                     <!--                    <field name="is_time_off" readonly="1"/>-->
-                    <field name="absence" readonly="0"/>
+                    <field name="absence"/>
                 </xpath>
                 <xpath expr="//field[@name='employee_id']" position="after">
                     <field name="department_id"/>
                     <field name="parent_department"/>
                 </xpath>
-                  <xpath expr="//field[@name='in_mode']" position="attributes">
-                    <attribute name="readonly">0</attribute>
-                </xpath>
+<!--                  <xpath expr="//field[@name='in_mode']" position="attributes">-->
+<!--                    <attribute name="readonly">0</attribute>-->
+<!--                </xpath>-->
             </field>
         </record>
 

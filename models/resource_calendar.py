@@ -1,6 +1,9 @@
 from odoo import fields, models, api
 
 
+class ResourceCalendarLeaves(models.Model):
+    _inherit = 'resource.calendar.leaves'
+    calendar_id = fields.Many2one(required=True)
 
 class ResourceCalendar(models.Model):
     _name = 'resource.calendar'
@@ -18,8 +21,6 @@ class ResourceCalendar(models.Model):
     day_friday = fields.Boolean(string='Friday', tracking=True)
     day_saturday = fields.Boolean(string='Saturday',   tracking=True)
     day_sunday = fields.Boolean(string='Sunday', tracking=True)
-
-
 
     @property
     def selected_days(self):

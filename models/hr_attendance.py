@@ -183,12 +183,13 @@ class HrAttendance(models.Model):
                 check_in_local = rec.check_in.astimezone(tz)
                 start = tz.localize(datetime.combine(check_in_local.date(), time.min))
                 end = tz.localize(datetime.combine(check_in_local.date(), time.max))
+                # print("rec.employee_id.contract_id.resource_calendar_id.id",rec.employee_id.contract_id.resource_calendar_id.id)
                 prev_day_attendance = self.env['resource.calendar.leaves'].search(
                     [('date_from', '<=', end),
                      ('date_to', '>=', start),
-                     ('resource_id', '=', False),
+                     ('calendar_id', '=', rec.employee_id.contract_id.resource_calendar_id.id),
                      ])
-                # print("comparison", prev_day_attendance.date_from <= end)
+                # print("comparison", prev_day_attendance)
                 leave_from_local = prev_day_attendance.date_from.astimezone(tz) if prev_day_attendance.date_from else False
                 leave_to_local = prev_day_attendance.date_to.astimezone(tz) if prev_day_attendance.date_to else False
                 if len(prev_day_attendance) > 0 and leave_from_local <= end and leave_to_local >= start:
