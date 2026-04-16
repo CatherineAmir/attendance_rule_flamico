@@ -176,7 +176,7 @@ class HrAttendance(models.Model):
     @api.depends('first_attendance', 'check_in')
     def _is_public_holiday(self):
         for rec in self:
-            if rec.check_in and rec.first_attendance:
+            if rec.check_in and rec.first_attendance and rec.employee_id.contract_id.resource_calendar_id:
                 calendar = rec._get_employee_calendar()
                 resource = rec.employee_id.resource_id
                 tz = timezone(resource.tz) if not calendar else timezone(calendar.tz)
@@ -187,6 +187,7 @@ class HrAttendance(models.Model):
                 prev_day_attendance = self.env['resource.calendar.leaves'].search(
                     [('date_from', '<=', end),
                      ('date_to', '>=', start),
+                     ('resource_id','=',False),
                      ('calendar_id', '=', rec.employee_id.contract_id.resource_calendar_id.id),
                      ])
                 # print("comparison", prev_day_attendance)
