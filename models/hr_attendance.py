@@ -506,6 +506,10 @@ class HrAttendance(models.Model):
         if not companies:
             return
 
+        # Cathy
+        public=self.env['resource.calendar.leaves']
+
+
         # TARGET_EMP_ID = 10569  # NEW: limit cron to this employee only
         if end_date is None:
             end_date = datetime.today()
@@ -527,6 +531,14 @@ class HrAttendance(models.Model):
             #     ('adjustment', '=', False),
             #     ('employee_id', '=', TARGET_EMP_ID),  # NEW
             # ]).employee_id
+
+            pub_days=public.search([("date_from",">=",fields.datetime.combine(day.date(), fields.datetime.min.time())),
+                                    ("date_from","<=",fields.datetime.combine(day.date(), fields.datetime.max.time())),
+                                    ("resource_id","=",False),])
+
+
+            print("pub_days", pub_days)
+
             checked_in_employees = self.env['hr.attendance'].search([
 
                 ('check_in', '>=', fields.datetime.combine(day.date(), fields.datetime.min.time())),
@@ -534,6 +546,7 @@ class HrAttendance(models.Model):
                 ('department_id', 'in', department_ids.ids),
             ]
             ).employee_id
+
             # CHANGED: only consider the target employee, and only if absent
             absent_employees = self.env['hr.employee'].search([
                 # ('id', '=', TARGET_EMP_ID),  # NEW
@@ -546,6 +559,16 @@ class HrAttendance(models.Model):
                 if not emp.contract_id.work_with_attendance:
                     continue
                 schedule_id = emp.contract_id.resource_calendar_id
+                # cathy
+                print(pub_days.mapped("calendar_id"))
+                pub_days_schedule=pub_days.filtered(lambda r: (r.calendar_id.id == schedule_id.id or not r.calendar_id))
+                print("pub_days_schedule", pub_days_schedule.mapped("name"))
+                if pub_days_schedule:
+                    continue
+
+
+
+                # end cathy
 
                 if schedule_id.flexible_hours:
                     start_hour = 23.9
