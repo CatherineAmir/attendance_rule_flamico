@@ -23,6 +23,7 @@
         'views/attendance_log.xml',
         'wizard/absence_deduction.xml',
         'views/hr_employee.xml',
+        'views/hr_leave.xml'
     ],
     'license': 'LGPL-3',
     'installable': True,

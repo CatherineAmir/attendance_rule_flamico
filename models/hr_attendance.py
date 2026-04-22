@@ -7,8 +7,10 @@ from pytz import timezone, utc
 from odoo.addons.resource.models.utils import Intervals
 from datetime import timedelta
 from collections import defaultdict
+
 local_tz = timezone('Africa/Cairo')
 import calendar
+
 
 class HrAttendance(models.Model):
     _inherit = 'hr.attendance'
@@ -18,7 +20,8 @@ class HrAttendance(models.Model):
                                          default='none', string='Lateness Deduction',
                                          compute='_calculate_lateness_deducted', store=True)
     lateness_deducted_hours = fields.Float(string='Lateness Deducted Hours', compute='_compute_lateness_deducted_hours',
-                                           store=True,help="Total number of hours to be deducted due to lateness based on hourly quarter policy.")
+                                           store=True,
+                                           help="Total number of hours to be deducted due to lateness based on hourly quarter policy.")
     slip_id = fields.Many2one('hr.payslip', string='Slip')
     is_leave = fields.Boolean(default=False, store=True)
     absence = fields.Selection([
@@ -70,9 +73,6 @@ class HrAttendance(models.Model):
     #                         }
     #                     }
 
-
-
-
     @api.depends('check_in', 'first_attendance', 'employee_id')
     def _compute_lateness_deducted_hours(self):
         for rec in self:
@@ -123,8 +123,8 @@ class HrAttendance(models.Model):
                 check_in_float = check_in_local.hour + (check_in_local.minute / 60)
                 lateness_hours = check_in_float - working_hour_from
                 print("lateness_hours", lateness_hours)
-                print("check_in_float",check_in_float)
-                print("working_hour_from",working_hour_from)
+                print("check_in_float", check_in_float)
+                print("working_hour_from", working_hour_from)
                 tolerance_deducted_hours = schedule_id.tolerance_deducted_minutes / 60
                 if lateness_hours >= tolerance_deducted_hours:
                     rec.lateness_deducted_hours = lateness_hours
@@ -187,18 +187,17 @@ class HrAttendance(models.Model):
                 prev_day_attendance = self.env['resource.calendar.leaves'].search(
                     [('date_from', '<=', end),
                      ('date_to', '>=', start),
-                     ('resource_id','=',False),
+                     ('resource_id', '=', False),
                      ('calendar_id', '=', rec.employee_id.contract_id.resource_calendar_id.id),
                      ])
                 # print("comparison", prev_day_attendance)
-                leave_from_local = prev_day_attendance.date_from.astimezone(tz) if prev_day_attendance.date_from else False
+                leave_from_local = prev_day_attendance.date_from.astimezone(
+                    tz) if prev_day_attendance.date_from else False
                 leave_to_local = prev_day_attendance.date_to.astimezone(tz) if prev_day_attendance.date_to else False
                 if len(prev_day_attendance) > 0 and leave_from_local <= end and leave_to_local >= start:
                     rec.is_public_holiday = True
                 else:
                     rec.is_public_holiday = False
-
-
 
     def detect_absence_state(self, technical_attendances=None):
         if not technical_attendances:
@@ -227,8 +226,9 @@ class HrAttendance(models.Model):
                                 prev_day_two_attendance = self.env['hr.attendance'].search_read(
                                     [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id),
                                      ('check_in', '>=', start_two),
-                                     ('check_in', '<', end_two)],['in_mode','absence'], order='check_in asc')
-                                if len(prev_day_two_attendance) > 0 and prev_day_two_attendance[0]['in_mode'] == 'technical' and prev_day_two_attendance[0]['absence'] == 'day_day':
+                                     ('check_in', '<', end_two)], ['in_mode', 'absence'], order='check_in asc')
+                                if len(prev_day_two_attendance) > 0 and prev_day_two_attendance[0][
+                                    'in_mode'] == 'technical' and prev_day_two_attendance[0]['absence'] == 'day_day':
                                     prev_day_attendance[0].write({'absence': 'day_day'})
                                     rec.absence = 'day_day'
                                 else:
@@ -255,13 +255,13 @@ class HrAttendance(models.Model):
                             [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id),
                              ('check_in', '>=', year_month_start),
                              ('check_in', '<=', year_month_end),
-                             ('check_in','<',rec.check_in),
+                             ('check_in', '<', rec.check_in),
                              ('in_mode', '=', 'technical'),
                              ('is_leave', '=', False),
-                             ],['in_mode','absence','check_in'], order='check_in desc',limit=1)
+                             ], ['in_mode', 'absence', 'check_in'], order='check_in desc', limit=1)
 
-                        print("rec.day",rec.check_in)
-                        print("last_day_absence_status",last_day_absence_status)
+                        print("rec.day", rec.check_in)
+                        print("last_day_absence_status", last_day_absence_status)
                         if len(prev_day_attendance) > 0:
                             if prev_day_attendance[0].in_mode == 'technical' and prev_day_attendance[0].is_leave:
                                 prev_day_two = prev_day - relativedelta(days=1)
@@ -270,18 +270,24 @@ class HrAttendance(models.Model):
                                 prev_day_two_attendance = self.env['hr.attendance'].search_read(
                                     [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id),
                                      ('check_in', '>=', start_two),
-                                     ('check_in', '<', end_two)],['in_mode','absence'], order='check_in asc')
-                                if len(prev_day_two_attendance) > 0 and prev_day_two_attendance[0]['in_mode'] == 'technical' and prev_day_two_attendance[0]['absence']in ['day_by_day_half', 'day_day']:
+                                     ('check_in', '<', end_two)], ['in_mode', 'absence'], order='check_in asc')
+                                if len(prev_day_two_attendance) > 0 and prev_day_two_attendance[0][
+                                    'in_mode'] == 'technical' and prev_day_two_attendance[0]['absence'] in [
+                                    'day_by_day_half', 'day_day']:
                                     prev_day_attendance[0].write({'absence': 'day_day'})
                                     rec.absence = 'day_by_day_half'
                                     print("in `1")
                                 else:
                                     print("in `2")
-                                    if len(last_day_absence_status) > 0 and last_day_absence_status[0]['in_mode'] == 'technical' and last_day_absence_status[0]['absence'] in ['day_by_day_half', 'day_day']:
+                                    if len(last_day_absence_status) > 0 and last_day_absence_status[0][
+                                        'in_mode'] == 'technical' and last_day_absence_status[0]['absence'] in [
+                                        'day_by_day_half', 'day_day']:
                                         rec.absence = 'day_by_day_half'
                                     else:
                                         rec.absence = 'day_day'
-                            elif len(last_day_absence_status) > 0 and last_day_absence_status[0]['in_mode'] == 'technical' and last_day_absence_status[0]['absence'] in ['day_by_day_half', 'day_day']:
+                            elif len(last_day_absence_status) > 0 and last_day_absence_status[0][
+                                'in_mode'] == 'technical' and last_day_absence_status[0]['absence'] in [
+                                'day_by_day_half', 'day_day']:
                                 rec.absence = 'day_by_day_half'
                                 print("in 3")
                             else:
@@ -289,7 +295,9 @@ class HrAttendance(models.Model):
                         # elif len(last_day_absence_status) > 0 and last_day_absence_status[0].in_mode == 'technical' and last_day_absence_status[0].absence in ['day_by_day_half', 'day_day']:
                         #     rec.absence = 'day_by_day_half'
                         else:
-                            if len(last_day_absence_status) > 0 and last_day_absence_status[0]['in_mode'] == 'technical' and last_day_absence_status[0]['absence'] in ['day_by_day_half', 'day_day']:
+                            if len(last_day_absence_status) > 0 and last_day_absence_status[0][
+                                'in_mode'] == 'technical' and last_day_absence_status[0]['absence'] in [
+                                'day_by_day_half', 'day_day']:
                                 rec.absence = 'day_by_day_half'
                             else:
                                 rec.absence = 'day_day'
@@ -297,12 +305,12 @@ class HrAttendance(models.Model):
                     rec.absence = 'no'
 
     def detect_is_timeoff(self, technical_attendances=None):
-        if  not technical_attendances:
+        if not technical_attendances:
             technical_attendances = self
         for rec in technical_attendances:
             if rec.in_mode == 'technical':
                 check_in_date = rec.check_in.date().weekday()
-                print("check_in_date",check_in_date)
+                print("check_in_date", check_in_date)
                 # check if the day is paid time off from working scheduale
                 # print("rec.employee_id.contract_id.resource_calendar_id.flexible_hours",rec.employee_id.contract_id.resource_calendar_id.flexible_hours)
                 if rec.employee_id.contract_id.resource_calendar_id.flexible_hours:
@@ -322,14 +330,12 @@ class HrAttendance(models.Model):
                 else:
                     rec.is_leave = False
 
-
     def _compute_color(self):
         for attendance in self:
             if attendance.check_out:
                 attendance.color = 1 if attendance.worked_hours > 24 or attendance.out_mode == 'technical' else 0
             else:
                 attendance.color = 1 if attendance.check_in < (datetime.today() - timedelta(days=1)) else 10
-
 
     def calculate_test_button(self):
         self._calculate_lateness_deducted()
@@ -358,9 +364,11 @@ class HrAttendance(models.Model):
         for rec in self:
             schedule_id = rec.employee_id.resource_calendar_id
             if schedule_id.is_day_shift_intersected:
-                work_from = max(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from') if schedule_id.attendance_ids else [8]))))
+                work_from = max(list(
+                    sorted(set(schedule_id.attendance_ids.mapped('hour_from') if schedule_id.attendance_ids else [8]))))
             else:
-                work_from = min(list(sorted(set(schedule_id.attendance_ids.mapped('hour_from') if schedule_id.attendance_ids else [8]))))
+                work_from = min(list(
+                    sorted(set(schedule_id.attendance_ids.mapped('hour_from') if schedule_id.attendance_ids else [8]))))
             # work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
             print("work_from", work_from)
             calendar = rec._get_employee_calendar()
@@ -495,20 +503,29 @@ class HrAttendance(models.Model):
     #         self.env.cr.savepoint()
     #         self.env.flush_all()
 
-    def cron_absence_detection(self,department_ids,number_of_days=30,end_date=None):
+    def cron_absence_detection(self, department_ids, number_of_days=30, end_date=None):
         """
         Objective is to create technical attendances on absence days to have negative overtime created for that day
         """
         # number_of_days = 20
         # yesterday = datetime.today().replace(hour=0, minute=0, second=0) - relativedelta(days=1)
 
+        # start = tz.localize(datetime.combine(check_in_local.date(), time.min))
+        # end = tz.localize(datetime.combine(check_in_local.date(), time.max))
+        # print("rec.employee_id.contract_id.resource_calendar_id.id",rec.employee_id.contract_id.resource_calendar_id.id)
+        # prev_day_attendance = self.env['resource.calendar.leaves'].search(
+        #     [('date_from', '<=', end),
+        #      ('date_to', '>=', start),
+        #      ('resource_id', '=', False),
+        #      ('calendar_id', '=', rec.employee_id.contract_id.resource_calendar_id.id),
+        #      ])
+
         companies = self.env['res.company'].search([('absence_management', '=', True)])
         if not companies:
             return
 
         # Cathy
-        public=self.env['resource.calendar.leaves']
-
+        public = self.env['resource.calendar.leaves']
 
         # TARGET_EMP_ID = 10569  # NEW: limit cron to this employee only
         if end_date is None:
@@ -531,13 +548,32 @@ class HrAttendance(models.Model):
             #     ('adjustment', '=', False),
             #     ('employee_id', '=', TARGET_EMP_ID),  # NEW
             # ]).employee_id
+            tz_name = self.env.user.tz or 'UTC'
+            local_tz = timezone(tz_name)
 
-            pub_days=public.search([("date_from",">=",fields.datetime.combine(day.date(), fields.datetime.min.time())),
-                                    ("date_from","<=",fields.datetime.combine(day.date(), fields.datetime.max.time())),
-                                    ("resource_id","=",False),])
+            # Localize day to its timezone, then convert to UTC
+            day_local_start = local_tz.localize(
+                fields.datetime.combine(day.date(), fields.datetime.min.time())
+            )
+            day_local_end = local_tz.localize(
+                fields.datetime.combine(day.date(), fields.datetime.max.time())
+            )
+
+            # Convert to UTC naive datetimes (Odoo stores in UTC)
+            day_utc_start = day_local_start.astimezone(utc).replace(tzinfo=None)
+            day_utc_end = day_local_end.astimezone(utc).replace(tzinfo=None)
+            # pub_days = public.search(
+            #         #public date_from               date
+            #     [("date_from", "<=", fields.datetime.combine(day.date(), fields.datetime.max.time())),
+            #      ("date_to", ">=", fields.datetime.combine(day.date(), fields.datetime.min.time())),
+            #      ("resource_id", "=", False)])
+            pub_days = public.search([
+                ("date_from", "<=", day_utc_end),
+                ("date_to", ">=", day_utc_start),
+                ("resource_id", "=", False),
+            ])
 
 
-            print("pub_days", pub_days)
 
             checked_in_employees = self.env['hr.attendance'].search([
 
@@ -560,13 +596,15 @@ class HrAttendance(models.Model):
                     continue
                 schedule_id = emp.contract_id.resource_calendar_id
                 # cathy
-                print(pub_days.mapped("calendar_id"))
-                pub_days_schedule=pub_days.filtered(lambda r: (r.calendar_id.id == schedule_id.id or not r.calendar_id))
-                print("pub_days_schedule", pub_days_schedule.mapped("name"))
+                # print(pub_days.mapped("calendar_id"))
+                pub_days_schedule = pub_days.filtered(
+                    lambda r: (r.calendar_id.id == schedule_id.id or not r.calendar_id))
+
                 if pub_days_schedule:
+                    print("pub_days_schedule", pub_days_schedule.mapped("name"))
+                    print("employee_id",emp.name)
+                    print("day",day)
                     continue
-
-
 
                 # end cathy
 
@@ -579,12 +617,13 @@ class HrAttendance(models.Model):
                     if len(work_from):
                         # print("work_from", work_from)
                         start_hour = int(
-                            max(work_from) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_from[
-                                0]) +1
+                            max(work_from) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else
+                            work_from[
+                                0]) + 1
                         print("start_hour", start_hour)
-                        end_hour=int(
+                        end_hour = int(
                             max(work_to) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_to[
-                                0]) -1
+                                0]) - 1
                     else:
                         start_hour = 9
                         end_hour = 9
