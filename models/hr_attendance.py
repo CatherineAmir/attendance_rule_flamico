@@ -189,13 +189,16 @@ class HrAttendance(models.Model):
                      ('date_to', '>=', start),
                      ('resource_id', '=', False),
                      ('calendar_id', '=', rec.employee_id.contract_id.resource_calendar_id.id),
-                     ])
+                     ],limit=1)
                 # print("comparison", prev_day_attendance)
-                leave_from_local = prev_day_attendance.date_from.astimezone(
-                    tz) if prev_day_attendance.date_from else False
-                leave_to_local = prev_day_attendance.date_to.astimezone(tz) if prev_day_attendance.date_to else False
-                if len(prev_day_attendance) > 0 and leave_from_local <= end and leave_to_local >= start:
-                    rec.is_public_holiday = True
+                if prev_day_attendance:
+                    leave_from_local = prev_day_attendance.date_from.astimezone(
+                        tz) if prev_day_attendance.date_from else False
+                    leave_to_local = prev_day_attendance.date_to.astimezone(tz) if prev_day_attendance.date_to else False
+                    if len(prev_day_attendance) > 0 and leave_from_local <= end and leave_to_local >= start:
+                        rec.is_public_holiday = True
+                    else:
+                        rec.is_public_holiday = False
                 else:
                     rec.is_public_holiday = False
 
