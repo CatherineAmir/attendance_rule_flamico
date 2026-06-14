@@ -597,6 +597,10 @@ class HrAttendance(models.Model):
             for emp in absent_employees:
                 if not emp.contract_id.work_with_attendance:
                     continue
+                # check if this day is within  contract date
+                if not ( emp.contract_id.date_start <=day.date() <=emp.contract_id.date_end):
+                    continue
+
                 schedule_id = emp.contract_id.resource_calendar_id
                 # cathy
                 # print(pub_days.mapped("calendar_id"))
