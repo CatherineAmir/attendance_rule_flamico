@@ -324,8 +324,13 @@ class HrAttendance(models.Model):
                         print("in false")
                         day_off = False
                 else:
-                    day_off = True if rec.employee_id.contract_id.resource_calendar_id.attendance_ids.filtered(
-                        lambda d: d.dayofweek == str(check_in_date) and d.work_entry_type_id.is_leave) else False
+                    #check if night shift
+                    if rec.employee_id.contract_id.resource_calendar_id.is_day_shift_intersected:
+                        day_off = True if rec.employee_id.contract_id.resource_calendar_id.attendance_ids.filtered(
+                            lambda d: d.dayofweek == str(check_in_date) and d.work_entry_type_id.is_leave and d.day_period !='morning') else False
+                    else:
+                        day_off = True if rec.employee_id.contract_id.resource_calendar_id.attendance_ids.filtered(
+                            lambda d: d.dayofweek == str(check_in_date) and d.work_entry_type_id.is_leave) else False
                 ################### time off criteria ######################
                 ###########################################################
                 if day_off:
