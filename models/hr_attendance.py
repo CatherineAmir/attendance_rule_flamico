@@ -598,8 +598,14 @@ class HrAttendance(models.Model):
                 if not emp.contract_id.work_with_attendance:
                     continue
                 # check if this day is within  contract date
-                if not ( emp.contract_id.date_start <=day.date() <=emp.contract_id.date_end):
-                    continue
+                if emp.contract_id.date_end:
+                    if not ( emp.contract_id.date_start <=day.date() <=emp.contract_id.date_end):
+                        continue
+                else:
+                    if emp.contract_id.date_start:
+                        if not (emp.contract_id.date_start <= day.date()):
+                            continue
+
 
                 schedule_id = emp.contract_id.resource_calendar_id
                 # cathy
