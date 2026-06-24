@@ -7,7 +7,8 @@ from pytz import timezone, utc
 from odoo.addons.resource.models.utils import Intervals
 from datetime import timedelta
 from collections import defaultdict
-from odoo.fields import Datetime
+import logging
+_logger = logging.getLogger(__name__)
 local_tz = timezone('Africa/Cairo')
 import calendar
 
@@ -600,14 +601,42 @@ class HrAttendance(models.Model):
             ])
 
 
+            # old
+            # checked_in_employees = self.env['hr.attendance'].search([
+            #
+            #     ('check_in', '>=', fields.datetime.combine(day.date(), fields.datetime.min.time())),
+            #     ('check_in', '<=', fields.datetime.combine(day.date(), fields.datetime.max.time())),
+            #     ('department_id', 'in', department_ids.ids),
+            # ]
+            # ).employee_id
+            # _logger.info("min_check_in %s", fields.datetime.combine(day.date(), fields.datetime.min.time()))
+            # _logger.info("max_check_out %s", fields.datetime.combine(day.date(), fields.datetime.max.time()))
+            user_tz = pytz.timezone(self.env.user.tz or 'UTC')
 
+            start_local = user_tz.localize(
+                datetime.combine(day.date(), time.min)
+            )
+            end_local = user_tz.localize(
+                datetime.combine(day.date(), time.max)
+            )
+
+            start_utc = start_local.astimezone(pytz.UTC).replace(tzinfo=None)
+            end_utc = end_local.astimezone(pytz.UTC).replace(tzinfo=None)
             checked_in_employees = self.env['hr.attendance'].search([
-
-                ('check_in', '>=', fields.datetime.combine(day.date(), fields.datetime.min.time())),
-                ('check_in', '<=', fields.datetime.combine(day.date(), fields.datetime.max.time())),
+                ('check_in', '>=', start_utc),
+                ('check_in', '<=', end_utc),
                 ('department_id', 'in', department_ids.ids),
-            ]
-            ).employee_id
+            ]).employee_id
+
+
+            _logger.info("type(start_utc) %s", type(start_utc))
+            _logger.info("type(end_utc) %s", type(end_utc))
+
+
+            _logger.info("min_check_in utc %s", start_utc)
+            _logger.info("max_check_out utc %s", end_utc)
+
+            _logger.info("checked_in_employees %s", checked_in_employees)
 
             # CHANGED: only consider the target employee, and only if absent
             absent_employees = self.env['hr.employee'].search([
@@ -637,9 +666,7 @@ class HrAttendance(models.Model):
                     lambda r: (r.calendar_id.id == schedule_id.id or not r.calendar_id))
 
                 if pub_days_schedule:
-                    print("pub_days_schedule", pub_days_schedule.mapped("name"))
-                    print("employee_id",emp.name)
-                    print("day",day)
+
                     continue
 
                 # end cathy
@@ -656,7 +683,7 @@ class HrAttendance(models.Model):
                             max(work_from) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else
                             work_from[
                                 0]) + 1
-                        print("start_hour", start_hour)
+
                         end_hour = int(
                             max(work_to) if emp.contract_id.resource_calendar_id.is_day_shift_intersected else work_to[
                                 0]) - 1
@@ -682,6 +709,7 @@ class HrAttendance(models.Model):
                 attendance_utc_dt = datetime.strptime(local_day_start.astimezone(utc).strftime('%Y-%m-%d %H:%M:%S'),
                                                       '%Y-%m-%d %H:%M:%S')
                 print("attendance_utc_dt", attendance_utc_dt)
+                _logger.info("attaendance_technical to be created %s", attendance_utc_dt)
                 technical_attendances_vals.append({
                     'check_in': attendance_utc_dt.strftime('%Y-%m-%d %H:%M:%S'),
                     'check_out': (attendance_utc_dt + relativedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S'),
@@ -713,13 +741,21 @@ class HrAttendance(models.Model):
             if r.in_mode == 'manual' and r.check_in:
                 r.first_attendance = False
                 check_in_date = r.check_in.date()
+                day_local_start = local_tz.localize(
+                    fields.datetime.combine(r.check_in.date(), fields.datetime.min.time())
+                )
+                day_local_end = local_tz.localize(
+                    fields.datetime.combine(r.check_in.date(), fields.datetime.max.time())
+                )
+                # Convert to UTC naive datetimes (Odoo stores in UTC)
+                day_utc_start = day_local_start.astimezone(utc).replace(tzinfo=None)
+                day_utc_end = day_local_end.astimezone(utc).replace(tzinfo=None)
+
                 same_check_in = self.env['hr.attendance'].search(
                     [("employee_id", "=", r.employee_id.id),
                      ('check_in', '>=', fields.datetime.combine(check_in_date, fields.datetime.min.time())),
                      ('check_in', '<=', fields.datetime.combine(check_in_date, fields.datetime.max.time())),
                      ("id", '!=', r.id)], order="check_in asc", limit=1)
-                # print("same_check_in", same_check_in.check_in)
-                # print("r_check_in", r.check_in)
 
                 if len(same_check_in):
                     if same_check_in.check_in > r.check_in:
