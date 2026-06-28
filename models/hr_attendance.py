@@ -7,7 +7,7 @@ from pytz import timezone, utc
 from odoo.addons.resource.models.utils import Intervals
 from datetime import timedelta
 from collections import defaultdict
-
+from odoo.fields import Datetime
 local_tz = timezone('Africa/Cairo')
 import calendar
 
@@ -72,6 +72,23 @@ class HrAttendance(models.Model):
     #                             ) % ", ".join(str(log) for log in localized_logs)
     #                         }
     #                     }
+
+    def write(self, vals):
+        validated_work_entries = self.env['hr.work.entry'].sudo().search([('attendance_id', 'in', self.ids), ('state', '=', 'validated')])
+        if validated_work_entries:
+            # raise UserError(_("This attendance record is linked to a validated working entry. You can't modify it."))
+            validated_work_entries.sudo().write({'state': 'draft'})
+        new_check_out = vals.get('check_out')
+        open_attendances = self.filtered(lambda a: not a.check_out) if new_check_out else self.env['hr.attendance']
+        res = super().write(vals)
+        if not open_attendances:
+            return res
+        skip_check = not bool({'check_in', 'check_out', 'employee_id'} & vals.keys())
+        start = min(self.mapped('check_in') + [Datetime.from_string(vals.get('check_in', False)) or datetime.max])
+        stop = max(self.mapped('check_out') + [Datetime.from_string(vals.get('check_out', False)) or datetime.min])
+        with self.env['hr.work.entry']._error_checking(start=start, stop=stop, skip=skip_check, employee_ids=self.employee_id.ids):
+            open_attendances._create_work_entries()
+        return res
 
     @api.depends('check_in', 'first_attendance', 'employee_id')
     def _compute_lateness_deducted_hours(self):
