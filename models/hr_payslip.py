@@ -1,3 +1,5 @@
+from psycopg2._psycopg import Boolean
+
 from odoo import fields, models, api
 
 from odoo.addons.resource.models.utils import Intervals
@@ -5,14 +7,14 @@ from collections import defaultdict
 from datetime import datetime, time, timedelta
 from odoo.osv import expression
 import pytz
-
-from babel.dates import format_date
 class HrPayslip(models.Model):
     _inherit = 'hr.payslip'
 
 
     attendance_ids = fields.One2many('hr.attendance', 'slip_id')
-    deducted_lateness_days = fields.Float(string='Deducted Lateness Days',default=0,tracking=True)
+    edit_lateness_manually = fields.Boolean(string='Edit Manually', default=False,tracking=True)
+    deducted_lateness_days = fields.Float(string='Deducted Lateness Days',default=0,tracking=True,compute='_compute_lateness_days',store=True)
+    deducted_lateness_hours = fields.Float(string='Deducted Lateness Hours',default=0,tracking=True,store=True)
     deducted_lateness_amount = fields.Float(string='Deducted Lateness Amount',default=0,tracking=True)
     actual_deducted_lateness_amount = fields.Float(string='Actual Deducted Lateness Amount',tracking=True)
 
@@ -25,6 +27,9 @@ class HrPayslip(models.Model):
     number_of_public_holidays = fields.Float(string='Number of Public Holidays', default=0, tracking=True,compute='_compute_public_holidays')
     total_bonus_public_holiday = fields.Float(string='Bonus Public Holiday', default=0, tracking=True,compute='_compute_public_holidays')
 
+
+
+    # edit_early_manually
     early_leave_hours = fields.Float(string='Early Leave Hours', default=0,tracking=True)
     early_leave_amount = fields.Float(string='Early Leave Amount', default=0,tracking=True)
     actual_early_leave_amount = fields.Float(string='Actual Early Leave Amount', default=0,tracking=True)
@@ -43,6 +48,15 @@ class HrPayslip(models.Model):
     flexible_hours_deducted_days = fields.Float(string='Deducted Days for Flexible Schedule',store=True,tracking=True,compute='_compute_hours_flexible_hours')
     is_flexible_hours = fields.Boolean(string='Is Flexible Hours', default=False, tracking=True,
                                        compute='_compute_is_flexible_hours')
+    edit_manually_deducted_days = fields.Boolean(string='Edit Manually', default=False, tracking=True)
+    edit_manually_deducted_hours = fields.Boolean(string='Edit Manually', default=False, tracking=True)
+
+
+
+    @api.constrains('deducted_lateness_days')
+    def _compute_lateness_hours(self):
+        for rec in self:
+            rec.deducted_lateness_hours = rec.deducted_lateness_days *24
 
     @api.depends('contract_id', 'employee_id')
     def _compute_is_flexible_hours(self):
@@ -68,15 +82,38 @@ class HrPayslip(models.Model):
                 total_overtime_hours = 0
 
                 for day in days_attendance_grouped:
-                    if day.get('validated_overtime_hours') < 0 and day.get('in_mode') != 'technical':
-                        total_deducted_hours += abs(day.get('validated_overtime_hours'))
+                    worked_hours = day.get('worked_hours')
+                    diff_hours = (worked_hours - rec.contract_id.resource_calendar_id.hours_per_day)
+                    if diff_hours < 0 and day.get('in_mode') != 'technical':
+                        approved_permission_hours = 0
+                        print("day",day.get('check_in'))
+                        time_offs = self.env['hr.leave'].search([
+                            ('employee_id', '=', rec.employee_id.id),
+                            ('state', '=', 'validate'),
+                            '|',
+                            ('request_unit_hours', '=', True),  # Custom hours time off
+                            ('request_unit_half', '=', True),  # half day time off
+                            ('request_date_from', '=', day.get('check_in').date()),
+                        ])
+                        if time_offs:
+                            for time_off in time_offs:
+                                approved_permission_hours += time_off.number_of_hours
+                        # print("approved_permission_hours:", approved_permission_hours)
+                        if diff_hours + approved_permission_hours < 0:
+                            # print("abs(diff_hours + approved_permission_hours)",abs(diff_hours + approved_permission_hours))
+                            total_deducted_hours += abs(diff_hours + approved_permission_hours)
+                        # else:
+                            # print("diff_hours", diff_hours)
+                        # total_deducted_hours += abs(day.get('validated_overtime_hours'))
+
                     else:
-                        total_overtime_hours += day.get('validated_overtime_hours')
+                        total_overtime_hours += diff_hours
 
-
-                rec.flexible_hours_deducted_hours = total_deducted_hours
+                if not rec.edit_manually_deducted_hours:
+                    rec.flexible_hours_deducted_hours = total_deducted_hours
                 rec.flexible_hours_overtime_hours = total_overtime_hours
-                rec.flexible_hours_deducted_days = days_absence_deducted_day_day + days_absence_deducted_day_by_day_half
+                if not rec.edit_manually_deducted_days:
+                    rec.flexible_hours_deducted_days = days_absence_deducted_day_day + days_absence_deducted_day_by_day_half
                 # print("total_absence_days",total_absence_days)
             else:
                 rec.flexible_hours_deducted_hours = 0.0
@@ -86,6 +123,9 @@ class HrPayslip(models.Model):
 
 
     def compute_sheet(self):
+        print("self",self)
+        self=self.filtered(lambda x:x.state not in ['done','paid','cancel'])
+        print("self after", self)
         self._get_attendance_by_payslip()
         self._compute_lateness_days()
         self._calculate_lateness_deducted_amount()
@@ -95,8 +135,7 @@ class HrPayslip(models.Model):
         self._compute_overtime_hours()
         self._compute_early_leave_hours()
         self._compute_weekly_reward()
-        # self.compute_attendance_time_off()
-        # self._compute_absence_days()
+
         super(HrPayslip, self).compute_sheet()
 
         return True
@@ -144,7 +183,13 @@ class HrPayslip(models.Model):
                         'check_in') else None
                     check_out_local = g.get('check_out').replace(tzinfo=pytz.UTC).astimezone(
                         user_tz) if g.get('check_out') else None
-                    last_check_out_float = ((check_out_local.hour * 60) + check_out_local.minute) / 60
+                    # print("check_out_local",check_out_local)
+                    last_check_out_float = (
+                                                   (check_out_local.hour * 3600) +
+                                                   (check_out_local.minute * 60) +
+                                                   check_out_local.second
+                                           ) / 3600
+                    # print("last_check_out_float1", last_check_out_float)
                     next_attendance = self.env['hr.attendance'].search_read([
                         ('id', 'in', rec.attendance_ids.ids),
                         ('check_in', '>=', g.get('check_out')),
@@ -191,10 +236,10 @@ class HrPayslip(models.Model):
                             if time_off.request_unit_hours and time_off.request_date_from == check_in_local.date():
                                 time_off_start_float = float(time_off.request_hour_from)
                                 time_off_end_float = float(time_off.request_hour_to)
-
-                                if (time_off_start_float >= last_check_out_float and time_off_end_float <= hour_to) or (last_check_out_float >= time_off_start_float and last_check_out_float <= time_off_end_float):
-                                    print("time_off.request_date_from", time_off.request_date_from)
+                                print("time_off_start_float",time_off_start_float,time_off_end_float)                     #16.491944444444446
+                                if (time_off_start_float >= last_check_out_float ) or (last_check_out_float >= time_off_start_float and last_check_out_float <= time_off_end_float):
                                     approved_early_leave_hours += (time_off_end_float - time_off_start_float)
+                                    print("approved_early_leave_hours", approved_early_leave_hours)
                             elif time_off.request_unit_half and time_off.request_date_from == check_in_local.date():
                                 date_from_tz = pytz.UTC.localize(time_off.date_from).astimezone(user_tz)
                                 date_to_tz = pytz.UTC.localize(time_off.date_to).astimezone(user_tz)
@@ -213,7 +258,9 @@ class HrPayslip(models.Model):
                         print("adjusted_hour_to",adjusted_hour_to)
                         print("last_check_out_float", last_check_out_float)
                         number_of_hours_early_leave = (adjusted_hour_to - last_check_out_float)
-                        early_leave_deducted += number_of_hours_early_leave
+                        minimum_number_of_hours_early_leave = min(number_of_hours_early_leave, rec.contract_id.resource_calendar_id.hours_per_day)
+                        print("minimum_number_of_hours_early_leave",minimum_number_of_hours_early_leave)
+                        early_leave_deducted += minimum_number_of_hours_early_leave
                         print("early_leave_deducted",early_leave_deducted)
                         # print("grouped attendance", g)
                         # print("number_of_minutes_early", early_leave_deducted)
@@ -372,7 +419,9 @@ class HrPayslip(models.Model):
                     # print("attendances_deducted_quarter_day",attendances_deducted_quarter_day)
                     amount_in_days = (attendances_deducted_half_day*0.5) + (attendances_deducted_quarter_day*0.25)
                     # print("amount_in_days",amount_in_days)
-                    rec.deducted_lateness_days = amount_in_days
+                    if not rec.edit_lateness_manually:
+                        rec.deducted_lateness_days = amount_in_days
+                    # rec.deducted_lateness_hours = amount_in_days * 24
                 elif rec.lateness_policy == 'apply_lateness_hourly_quarter':
                     total_lateness_hours = sum(rec.attendance_ids.filtered(lambda o: o.lateness_deducted_hours>0).mapped('lateness_deducted_hours'))
                     # print("total_lateness_hours:", total_lateness_hours)
@@ -382,9 +431,12 @@ class HrPayslip(models.Model):
                     # Round to nearest quarter day
                     lateness_days_rounded = lateness_days
                     # print("lateness_days_rounded:", lateness_days_rounded)
-                    rec.deducted_lateness_days = lateness_days_rounded
+                    if not rec.edit_lateness_manually:
+                        rec.deducted_lateness_days = lateness_days_rounded
+                    # rec.deducted_lateness_hours = lateness_days_rounded * 24
             else:
                 rec.deducted_lateness_days = 0
+                # rec.deducted_lateness_hours = 0
 
 
     @api.depends('deducted_lateness_days')

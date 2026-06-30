@@ -122,7 +122,7 @@ class HrAttendance(models.Model):
                             time_off_start_float = float(time_off.request_hour_from)
                             time_off_end_float = float(time_off.request_hour_to)
                             # If time off starts at or before working hours
-                            if time_off_start_float <= work_from:
+                            if time_off_start_float <= work_from and ( time_off.number_of_days !=0 or time_off.number_of_hours !=0):
                                 approved_late_arrival_hours += (time_off_end_float - work_from)
                     elif time_off.request_unit_half:
                         if time_off.request_date_from == check_in_local.date():
@@ -134,9 +134,9 @@ class HrAttendance(models.Model):
                             if round(time_off_start_float, 1) <= work_from:
                                 # Calculate approved late arrival hours
                                 approved_late_arrival_hours += (round(time_off_end_float, 1) - work_from)
-
+                print("approved_late_arrival_hours",approved_late_arrival_hours)
                 working_hour_from = work_from + approved_late_arrival_hours
-
+                print("work_from",work_from)
                 check_in_float = check_in_local.hour + (check_in_local.minute / 60)
                 lateness_hours = check_in_float - working_hour_from
                 print("lateness_hours", lateness_hours)
@@ -371,6 +371,7 @@ class HrAttendance(models.Model):
         # self._is_time_off_approved()
         self.detect_is_timeoff()
         self.detect_absence_state()
+        self._compute_validated_overtime_hours()
 
     def add_float_hours_to_time(self, base_hours, float_hours):
         total_float_hours = base_hours + float_hours

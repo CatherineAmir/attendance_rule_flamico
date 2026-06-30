@@ -27,9 +27,25 @@
                     <page name="attendance_rule" string="Attendance Rule" invisible="is_flexible_hours">
                         <group>
                             <group string="Lateness Deductions">
-
-                                <field name="deducted_lateness_days" readonly="1"/>
-                                <field name="deducted_lateness_amount" readonly="1"/>
+                                <field name="edit_lateness_manually" widget="boolean_toggle"/>
+                                <label for="deducted_lateness_days"/>
+                                <div class="o_row mw-20" name="deducted_lateness_days">
+                                    <field name="deducted_lateness_days" class="oe_inline o_hr_narrow_field"
+                                           nolabel="1" readonly="not edit_lateness_manually" widget="float"/>
+                                    <div class="mb-3" name="wage_period_label">Days</div>
+                                </div>
+                                <label for="deducted_lateness_hours"/>
+                                <div class="o_row mw-20" name="deducted_lateness_hours">
+                                    <field name="deducted_lateness_hours" class="oe_inline o_hr_narrow_field"
+                                           nolabel="1" readonly="1" widget="float"/>
+                                    <div class="mb-3" name="wage_period_label">Hours</div>
+                                </div>
+                                <label for="deducted_lateness_amount"/>
+                                <div class="o_row mw-20" name="deducted_lateness_amount">
+                                    <field name="deducted_lateness_amount" class="oe_inline o_hr_narrow_field"
+                                           nolabel="1" readonly="1" widget="float"/>
+                                    <div class="mb-3" name="wage_period_label">L.E</div>
+                                </div>
                                 <!--                                <field name="actual_deducted_lateness_amount"/>-->
                             </group>
                             <group string="Absence Deductions">
@@ -60,27 +76,40 @@
                     </page>
                     <page name="flexible_hours" string="Attendance Rules Flexible Hours"
                           invisible="not is_flexible_hours">
-                        <group string="Flexible Hours Rules">
-                            <label for="flexible_hours_deducted_hours"/>
-                            <div class="o_row mw-20" name="flexible_hours_deducted_hours">
-                                <field name="flexible_hours_deducted_hours" class="oe_inline o_hr_narrow_field" nolabel="1" readonly="1"  widget="float_time"/>
-                                <div class="mb-3" name="wage_period_label">Hours : Minutes</div>
-                            </div>
-                            <label for="flexible_hours_overtime_hours"/>
-                            <div class="o_row mw-20" name="flexible_hours_overtime_hours">
-                                <field name="flexible_hours_overtime_hours" class="oe_inline o_hr_narrow_field" nolabel="1" readonly="1" widget="float_time"/>
-                                <div class="mb-3" name="wage_period_label">Hours : Minutes</div>
-                            </div>
-<!--                            <field name="flexible_hours_deducted_hours" readonly="1"/>-->
-<!--                            <field name="flexible_hours_overtime_hours" readonly="1"/>-->
-                            <label for="flexible_hours_deducted_days"/>
-                            <div class="o_row mw-20" name="flexible_hours_deducted_days">
-                                <field name="flexible_hours_deducted_days" class="oe_inline o_hr_narrow_field" nolabel="1" readonly="1"/>
-                                <div class="mb-3" name="wage_period_label">Days</div>
-                            </div>
-<!--                            <field name="flexible_hours_deducted_days" readonly="1"/>-->
-                        </group>
+                        <group>
+                            <group string="Deducted Hours">
+                                <field name="edit_manually_deducted_hours" widget="boolean_toggle"/>
+                                <label for="flexible_hours_deducted_hours"/>
+                                <div class="o_row mw-20" name="flexible_hours_deducted_hours">
+                                    <field name="flexible_hours_deducted_hours" class="oe_inline o_hr_narrow_field"
+                                           nolabel="1" readonly="not edit_manually_deducted_hours" widget="float_time"/>
+                                    <div class="mb-3" name="wage_period_label">Hours : Minutes</div>
+                                </div>
+                            </group>
+                            <group string="Deducted Days">
+                                <field name="edit_manually_deducted_days" widget="boolean_toggle"/>
+                               <label for="flexible_hours_deducted_days"/>
+                                <div class="o_row mw-20" name="flexible_hours_deducted_days">
+                                    <field name="flexible_hours_deducted_days" class="oe_inline o_hr_narrow_field"
+                                           nolabel="1" readonly="not edit_manually_deducted_days"/>
+                                    <div class="mb-3" name="wage_period_label">Days</div>
+                                </div>
+                            </group>
 
+                            <!--                            <field name="flexible_hours_deducted_hours" readonly="1"/>-->
+                            <!--                            <field name="flexible_hours_overtime_hours" readonly="1"/>-->
+                            <!--                            <field name="flexible_hours_deducted_days" readonly="1"/>-->
+                        </group>
+                        <group>
+                            <group string="Overtime Hours">
+                                 <label for="flexible_hours_overtime_hours"/>
+                                <div class="o_row mw-20" name="flexible_hours_overtime_hours">
+                                    <field name="flexible_hours_overtime_hours" class="oe_inline o_hr_narrow_field"
+                                           nolabel="1" readonly="1" widget="float_time"/>
+                                    <div class="mb-3" name="wage_period_label">Hours : Minutes</div>
+                                </div>
+                            </group>
+                        </group>
                     </page>
                 </xpath>
             </field>
