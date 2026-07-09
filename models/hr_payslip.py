@@ -56,7 +56,7 @@ class HrPayslip(models.Model):
     @api.constrains('deducted_lateness_days')
     def _compute_lateness_hours(self):
         for rec in self:
-            rec.deducted_lateness_hours = rec.deducted_lateness_days *24
+            rec.deducted_lateness_hours = rec.deducted_lateness_days *rec.contract_id.resource_calendar_id.hours_per_day
 
     @api.depends('contract_id', 'employee_id')
     def _compute_is_flexible_hours(self):
