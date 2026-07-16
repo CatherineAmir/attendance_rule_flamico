@@ -269,9 +269,10 @@ class HrAttendance(models.Model):
                         prev_day_attendance = self.env['hr.attendance'].search(
                             [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id), ('check_in', '>=', start),
                              ('check_in', '<', end)], order='check_in asc')
-                        year_month_start = datetime(rec.check_in.year, rec.check_in.month, 1).date()
-                        last_day = calendar.monthrange(rec.check_in.year, rec.check_in.month)[1]
-                        year_month_end = datetime(rec.check_in.year, rec.check_in.month, last_day).date()
+                        # from 26 - to 25
+                        year_month_start = datetime(rec.check_in.year, rec.check_in.month, 26).date()
+                        # last_day = calendar.monthrange(rec.check_in.year, rec.check_in.month)[1]
+                        year_month_end = datetime(rec.check_in.year, rec.check_in.month+1, 25).date()
                         last_day_absence_status = self.env['hr.attendance'].search_read(
                             [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id),
                              ('check_in', '>=', year_month_start),
