@@ -46,7 +46,7 @@
                     <field name="first_attendance"/>
                     <field name="slip_id"/>
                     <field name="lateness_deducted"/>
-                    <field name="lateness_deducted_hours" optional="hide"/>
+                    <field name="lateness_deducted_hours" widget="float_time"/>
                     <field name="is_leave"/>
                     <field name="is_public_holiday"/>
                     <!--                    <field name="is_time_off"/>-->

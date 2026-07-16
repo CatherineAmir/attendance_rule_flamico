@@ -358,7 +358,12 @@ class HrPayslip(models.Model):
     #                     attendance.is_leave = True
     #                 else:
     #                     attendance.is_leave = False
+    def action_open_attendances(self):
+        action=super().action_open_attendances()
 
+        action['context']['group_by']=['employee_id']
+
+        return action
     @api.depends('attendance_ids','edit_manually','is_flexible_hours')
     def _compute_absence_days(self):
         for rec in self:

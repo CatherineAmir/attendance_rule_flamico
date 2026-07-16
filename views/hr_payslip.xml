@@ -37,8 +37,8 @@
                                 <label for="deducted_lateness_hours"/>
                                 <div class="o_row mw-20" name="deducted_lateness_hours">
                                     <field name="deducted_lateness_hours" class="oe_inline o_hr_narrow_field"
-                                           nolabel="1" readonly="1" widget="float"/>
-                                    <div class="mb-3" name="wage_period_label">Hours</div>
+                                           nolabel="1" readonly="1" widget="float_time"/>
+                                    <div class="mb-3" name="wage_period_label">Hours:Minutes</div>
                                 </div>
                                 <label for="deducted_lateness_amount"/>
                                 <div class="o_row mw-20" name="deducted_lateness_amount">
