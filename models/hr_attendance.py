@@ -135,14 +135,14 @@ class HrAttendance(models.Model):
                             if round(time_off_start_float, 1) <= work_from:
                                 # Calculate approved late arrival hours
                                 approved_late_arrival_hours += (round(time_off_end_float, 1) - work_from)
-                print("approved_late_arrival_hours",approved_late_arrival_hours)
+                # print("approved_late_arrival_hours",approved_late_arrival_hours)
                 working_hour_from = work_from + approved_late_arrival_hours
-                print("work_from",work_from)
+                # print("work_from",work_from)
                 check_in_float = check_in_local.hour + (check_in_local.minute / 60)
                 lateness_hours = check_in_float - working_hour_from
-                print("lateness_hours", lateness_hours)
-                print("check_in_float", check_in_float)
-                print("working_hour_from", working_hour_from)
+                # print("lateness_hours", lateness_hours)
+                # print("check_in_float", check_in_float)
+                # print("working_hour_from", working_hour_from)
                 tolerance_deducted_hours = schedule_id.tolerance_deducted_minutes / 60
                 if lateness_hours >= tolerance_deducted_hours:
                     rec.lateness_deducted_hours = lateness_hours
@@ -270,9 +270,20 @@ class HrAttendance(models.Model):
                             [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id), ('check_in', '>=', start),
                              ('check_in', '<', end)], order='check_in asc')
                         # from 26 - to 25
-                        year_month_start = datetime(rec.check_in.year, rec.check_in.month, 26).date()
+                        if rec.check_in.date().day<26:
+
+                            year_month_start = datetime(rec.check_in.year, rec.check_in.month-1, 26).date()
                         # last_day = calendar.monthrange(rec.check_in.year, rec.check_in.month)[1]
-                        year_month_end = datetime(rec.check_in.year, rec.check_in.month+1, 25).date()
+                            print("year_month_start", year_month_start)
+                            year_month_end = datetime(rec.check_in.year, rec.check_in.month, 25).date()
+                            print("year_month_end", year_month_end)
+                        else:
+                            year_month_start = datetime(rec.check_in.year, rec.check_in.month, 26).date()
+                            # last_day = calendar.monthrange(rec.check_in.year, rec.check_in.month)[1]
+                            print("year_month_start", year_month_start)
+                            year_month_end = datetime(rec.check_in.year, rec.check_in.month+1, 25).date()
+                            print("year_month_end", year_month_end)
+
                         last_day_absence_status = self.env['hr.attendance'].search_read(
                             [('employee_id', '=', rec.employee_id.id), ('id', '!=', rec.id),
                              ('check_in', '>=', year_month_start),
@@ -332,7 +343,7 @@ class HrAttendance(models.Model):
         for rec in technical_attendances:
             if rec.in_mode == 'technical':
                 check_in_date = rec.check_in.date().weekday()
-                print("check_in_date", check_in_date)
+                # print("check_in_date", check_in_date)
                 # check if the day is paid time off from working scheduale
                 # print("rec.employee_id.contract_id.resource_calendar_id.flexible_hours",rec.employee_id.contract_id.resource_calendar_id.flexible_hours)
                 if rec.employee_id.contract_id.resource_calendar_id.flexible_hours:
@@ -340,7 +351,7 @@ class HrAttendance(models.Model):
                     if check_in_date in flexible_holidays:
                         day_off = True
                     else:
-                        print("in false")
+                        # print("in false")
                         day_off = False
                 else:
                     #check if night shift
@@ -398,12 +409,12 @@ class HrAttendance(models.Model):
                 work_from = min(list(
                     sorted(set(schedule_id.attendance_ids.mapped('hour_from') if schedule_id.attendance_ids else [8]))))
             # work_from = list(sorted(set(schedule_id.attendance_ids.mapped('hour_from'))))
-            print("work_from", work_from)
+            # print("work_from", work_from)
             calendar = rec._get_employee_calendar()
             resource = rec.employee_id.resource_id
             tz = timezone(resource.tz) if not calendar else timezone(calendar.tz)
             working_hours = work_from
-            print("working_hours", working_hours)
+            # print("working_hours", working_hours)
             if rec.first_attendance:
                 if rec.employee_id.contract_id.work_with_attendance and rec.employee_id.contract_id.lateness_policy == 'apply_lateness_rules':
                     """
@@ -567,7 +578,7 @@ class HrAttendance(models.Model):
             today = datetime.today()
             # print("today", today)
             if today.date() == day.date():
-                print("im breaking")
+                # print("im breaking")
                 break
 
             # CHANGED: only check overtime for the target employee
@@ -709,7 +720,7 @@ class HrAttendance(models.Model):
                 # print("localized_dt", localized_dt)
                 attendance_utc_dt = datetime.strptime(local_day_start.astimezone(utc).strftime('%Y-%m-%d %H:%M:%S'),
                                                       '%Y-%m-%d %H:%M:%S')
-                print("attendance_utc_dt", attendance_utc_dt)
+                # print("attendance_utc_dt", attendance_utc_dt)
                 _logger.info("attaendance_technical to be created %s", attendance_utc_dt)
                 technical_attendances_vals.append({
                     'check_in': attendance_utc_dt.strftime('%Y-%m-%d %H:%M:%S'),
@@ -720,7 +731,7 @@ class HrAttendance(models.Model):
                 })
 
             technical_attendances = self.env['hr.attendance'].create(technical_attendances_vals)
-            print("technical_attendances", technical_attendances.mapped("check_in"))
+            # print("technical_attendances", technical_attendances.mapped("check_in"))
             self.detect_is_timeoff(technical_attendances)
             # self._is_time_off_approved(technical_attendances)
             self.detect_absence_state(technical_attendances)
